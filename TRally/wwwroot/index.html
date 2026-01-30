@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRally - 토론으로 성장하는 우리</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 로그인 페이지 -->
+        <div id="loginPage" class="auth-page">
+            <div class="logo">TRally</div>
+            <p class="subtitle">토론으로 성장하는 우리</p>
+
+            <!-- 로그인 폼 -->
+            <div id="loginFormContainer">
+                <form class="auth-form" onsubmit="login(event)">
+                    <div class="input-group">
+                        <label>아이디</label>
+                        <input type="text" id="username" placeholder="아이디를 입력하세요" required>
+                    </div>
+                    <div class="input-group">
+                        <label>비밀번호</label>
+                        <input type="password" id="password" placeholder="비밀번호를 입력하세요" required>
+                    </div>
+                    <button type="submit" class="auth-btn">로그인</button>
+                </form>
+
+                <p class="switch-form">
+                    계정이 없으신가요? <a onclick="showSignup()">회원가입</a>
+                </p>
+            </div>
+
+            <!-- 회원가입 폼 -->
+            <div id="signupFormContainer" class="hidden">
+                <form class="auth-form" onsubmit="signup(event)">
+                    <div class="input-group">
+                        <label>이름</label>
+                        <input type="text" id="signupName" placeholder="실명을 입력하세요" required>
+                    </div>
+                    <div class="input-group">
+                        <label>아이디</label>
+                        <input type="text" id="signupUsername" placeholder="사용할 아이디를 입력하세요" required>
+                    </div>
+                    <div class="input-group">
+                        <label>비밀번호</label>
+                        <input type="password" id="signupPassword" placeholder="비밀번호를 입력하세요" required>
+                    </div>
+                    <div class="input-group">
+                        <label>비밀번호 확인</label>
+                        <input type="password" id="signupPasswordConfirm" placeholder="비밀번호를 다시 입력하세요" required>
+                    </div>
+                    <div class="input-group">
+                        <label>이메일</label>
+                        <input type="email" id="signupEmail" placeholder="example@email.com" required>
+                    </div>
+                    <div class="input-group">
+                        <label>소개</label>
+                        <textarea id="signupIntro" placeholder="간단한 자기소개를 작성해주세요" required></textarea>
+                    </div>
+                    <button type="submit" class="auth-btn">가입 신청</button>
+                </form>
+
+                <p class="switch-form">
+                    이미 계정이 있으신가요? <a onclick="showLogin()">로그인</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- 메인 페이지 -->
+        <div id="mainPage" class="main-page">
+            <div class="header">
+                <h1>TRally</h1>
+                <div class="user-info">
+                    <span id="currentUser">사용자</span>
+                    <button class="logout-btn" onclick="logout()">로그아웃</button>
+                </div>
+            </div>
+
+            <div class="content">
+                <div class="sidebar">
+                    <div class="menu-item active" onclick="showPage('schedule')">
+                        📅 일정
+                    </div>
+                    <div class="menu-item" onclick="showPage('topics')">
+                        📝 주제 목록
+                    </div>
+                    <div class="menu-item" onclick="showPage('attendance')">
+                        📋 출석부
+                    </div>
+                    <div id="adminMenu" class="menu-item hidden" onclick="showPage('admin')">
+                        👑 회원 승인
+                    </div>
+                </div>
+
+                <div class="main-content">
+                    <!-- 일정 페이지 -->
+                    <div id="schedulePage" class="content-page">
+                        <h2 class="page-title">토론 일정</h2>
+
+                        <!-- 일정 추가 폼 -->
+                        <div id="scheduleFormContainer" class="hidden">
+                            <form class="schedule-form" onsubmit="saveSchedule(event)">
+                                <input type="hidden" id="scheduleEditId">
+                                <div class="form-row">
+                                    <div class="form-col form-col-small">
+                                        <label>회차</label>
+                                        <input type="number" id="scheduleNumber" placeholder="205" required>
+                                    </div>
+                                    <div class="form-col">
+                                        <label>발제자</label>
+                                        <input type="text" id="schedulePresenter" placeholder="발제자">
+                                    </div>
+                                    <div class="form-col">
+                                        <label>사회자</label>
+                                        <input type="text" id="scheduleModerator" placeholder="사회자">
+                                    </div>
+                                    <div class="form-col">
+                                        <label>날짜</label>
+                                        <input type="date" id="scheduleDate">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-col">
+                                        <label>주제</label>
+                                        <input type="text" id="scheduleTopic" placeholder="토론 주제">
+                                    </div>
+                                    <div class="form-col">
+                                        <label>장소</label>
+                                        <input type="text" id="scheduleLocation" placeholder="장소">
+                                    </div>
+                                    <div class="form-col">
+                                        <label>게스트</label>
+                                        <input type="text" id="scheduleGuest" placeholder="게스트">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-col form-col-full">
+                                        <label>비고</label>
+                                        <textarea id="scheduleRemarks" placeholder="비고" rows="2"></textarea>
+                                    </div>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="save-btn">저장</button>
+                                    <button type="button" class="cancel-btn" onclick="cancelScheduleEdit()">취소</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- 일정 버튼들 -->
+                        <div class="schedule-buttons hidden" id="scheduleButtons">
+                            <button class="add-btn" onclick="showScheduleForm()">+ 새 일정 추가</button>
+                            <label class="upload-btn hidden" id="excelUploadBtn">
+                                📁 엑셀 업로드
+                                <input type="file" id="excelUpload" accept=".xlsx,.xls" onchange="uploadExcel(event)" hidden>
+                            </label>
+                        </div>
+
+                        <!-- 일정 표 -->
+                        <div class="table-wrapper">
+                            <div class="table-scroll-top" id="scrollTop">
+                                <div class="table-scroll-top-inner" id="scrollTopInner"></div>
+                            </div>
+                            <div class="table-container" id="tableContainer">
+                                <table class="schedule-table" id="scheduleTable">
+                                    <thead>
+                                        <tr>
+                                            <th>회차</th>
+                                            <th>발제자</th>
+                                            <th>사회자</th>
+                                            <th>날짜</th>
+                                            <th>주제</th>
+                                            <th>장소</th>
+                                            <th>게스트</th>
+                                            <th>비고</th>
+                                            <th id="scheduleActionsHeader" class="hidden">관리</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="scheduleTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 주제 목록 페이지 -->
+                    <div id="topicsPage" class="content-page hidden">
+                        <h2 class="page-title">제안된 주제</h2>
+
+                        <!-- 주제 추가/수정 폼 -->
+                        <div id="topicFormContainer" class="hidden">
+                            <form class="schedule-form" onsubmit="saveTopic(event)">
+                                <input type="hidden" id="topicEditId">
+                                <div class="form-row">
+                                    <div class="form-col">
+                                        <label>제안자</label>
+                                        <input type="text" id="topicAuthor" placeholder="이름" required>
+                                    </div>
+                                    <div class="form-col">
+                                        <label>진행 날짜</label>
+                                        <input type="date" id="topicDate">
+                                    </div>
+                                    <div class="form-col form-col-small">
+                                        <label>진행 여부</label>
+                                        <select id="topicCompleted">
+                                            <option value="false">미진행</option>
+                                            <option value="true">진행됨</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-col form-col-full">
+                                        <label>주제</label>
+                                        <input type="text" id="topicTitle" placeholder="토론 주제" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-col form-col-full">
+                                        <label>키워드 (선택)</label>
+                                        <input type="text" id="topicKeywords" placeholder="예: AI, 심리학, 사회">
+                                    </div>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="save-btn">저장</button>
+                                    <button type="button" class="cancel-btn" onclick="cancelTopicEdit()">취소</button>
+                                    <button type="button" class="delete-btn" id="topicDeleteBtn" onclick="deleteCurrentTopic()" style="display:none;">삭제</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- 주제 추가 버튼 -->
+                        <div class="schedule-buttons hidden" id="topicButtons">
+                            <button class="add-btn" onclick="showTopicForm()">+ 새 주제 추가</button>
+                        </div>
+
+                        <div class="topic-filters">
+                            <button class="filter-btn active" onclick="filterByAuthor('all')">전체</button>
+                            <button class="filter-btn" onclick="filterByAuthor('다흰')">다흰</button>
+                            <button class="filter-btn" onclick="filterByAuthor('민구')">민구</button>
+                            <button class="filter-btn" onclick="filterByAuthor('아름')">아름</button>
+                            <button class="filter-btn" onclick="filterByAuthor('승종')">승종</button>
+                            <button class="filter-btn" onclick="filterByAuthor('원혁')">원혁</button>
+                            <button class="filter-btn" onclick="filterByAuthor('동원')">동원</button>
+                            <button class="filter-btn" onclick="filterByAuthor('샘')">샘</button>
+                            <button class="filter-btn" onclick="filterByAuthor('유정')">유정</button>
+                            <button class="filter-btn" onclick="filterByAuthor('강석')">강석</button>
+                        </div>
+                        <div class="topic-content" id="topicContent"></div>
+                    </div>
+
+                    <!-- 출석부 페이지 -->
+                    <div id="attendancePage" class="content-page hidden">
+                        <h2 class="page-title">출석부</h2>
+
+                        <!-- 연도 탭 -->
+                        <div class="attendance-tabs">
+                            <div class="year-tabs" id="yearTabs"></div>
+                            <button class="add-year-btn hidden" id="addYearBtn" onclick="showAddYearModal()">+ 연도 추가</button>
+                        </div>
+
+                        <!-- 관리 버튼 -->
+                        <div class="attendance-actions hidden" id="attendanceActions">
+                            <button class="add-btn" onclick="showAddMemberModal()">+ 멤버 추가</button>
+                            <button class="add-btn" onclick="showAddScheduleModal()">+ 일정 추가</button>
+                        </div>
+
+                        <!-- 출석부 테이블 -->
+                        <div class="attendance-table-wrapper">
+                            <div class="attendance-table-container" id="attendanceTableContainer">
+                                <table class="attendance-table" id="attendanceTable">
+                                    <thead id="attendanceTableHead"></thead>
+                                    <tbody id="attendanceTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 멤버 추가 모달 -->
+                    <div id="addMemberModal" class="modal hidden">
+                        <div class="modal-content">
+                            <h3>멤버 추가</h3>
+                            <div class="form-col">
+                                <label>멤버 이름</label>
+                                <input type="text" id="newMemberName" placeholder="이름을 입력하세요">
+                            </div>
+                            <div class="modal-actions">
+                                <button class="save-btn" onclick="addMember()">추가</button>
+                                <button class="cancel-btn" onclick="closeModal('addMemberModal')">취소</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 일정 추가 모달 -->
+                    <div id="addScheduleModal" class="modal hidden">
+                        <div class="modal-content">
+                            <h3>일정 추가</h3>
+                            <div class="form-col">
+                                <label>일정 날짜 (예: 1/11)</label>
+                                <input type="text" id="newScheduleDate" placeholder="월/일 형식으로 입력">
+                            </div>
+                            <div class="modal-actions">
+                                <button class="save-btn" onclick="addAttendanceSchedule()">추가</button>
+                                <button class="cancel-btn" onclick="closeModal('addScheduleModal')">취소</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 연도 추가 모달 -->
+                    <div id="addYearModal" class="modal hidden">
+                        <div class="modal-content">
+                            <h3>연도 추가</h3>
+                            <div class="form-col">
+                                <label>연도</label>
+                                <input type="number" id="newYear" placeholder="예: 2027" min="2020" max="2100">
+                            </div>
+                            <div class="modal-actions">
+                                <button class="save-btn" onclick="addYear()">추가</button>
+                                <button class="cancel-btn" onclick="closeModal('addYearModal')">취소</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 관리자 페이지 -->
+                    <div id="adminPage" class="content-page hidden">
+                        <h2 class="page-title">회원 관리</h2>
+
+                        <!-- 승인 대기 섹션 -->
+                        <h3 class="section-title">승인 대기 (
+                            <span id="pendingCount">0</span>명)
+                        </h3>
+                        <div id="pendingAlert" class="alert alert-warning hidden">
+                            대기중인 회원 가입 신청이 없습니다.
+                        </div>
+                        <div class="pending-list" id="pendingList"></div>
+
+                        <!-- 승인된 회원 섹션 -->
+                        <h3 class="section-title" style="margin-top: 30px;">승인된 회원 (
+                            <span id="memberCount">0</span>명)
+                        </h3>
+                        <div class="member-list" id="memberList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 외부 라이브러리 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- 앱 스크립트 -->
+    <script src="js/config.js"></script>
+    <script src="js/supabase-client.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
