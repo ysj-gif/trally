@@ -183,3 +183,28 @@ UNION ALL SELECT id, '11/01', 21 FROM attendance_years WHERE year = 2026
 UNION ALL SELECT id, '11/15', 22 FROM attendance_years WHERE year = 2026
 UNION ALL SELECT id, '11/29', 23 FROM attendance_years WHERE year = 2026
 UNION ALL SELECT id, '12/20', 24 FROM attendance_years WHERE year = 2026;
+
+-- ============================================
+-- 갤러리 테이블
+-- ============================================
+
+-- 갤러리 테이블
+CREATE TABLE gallery (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    image_data TEXT NOT NULL,
+    uploader TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 갤러리 테이블 RLS 설정
+ALTER TABLE gallery ENABLE ROW LEVEL SECURITY;
+
+-- 갤러리 테이블 읽기 허용
+CREATE POLICY "Allow read access" ON gallery FOR SELECT USING (true);
+
+-- 갤러리 테이블 쓰기 허용
+CREATE POLICY "Allow insert" ON gallery FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update" ON gallery FOR UPDATE USING (true);
+CREATE POLICY "Allow delete" ON gallery FOR DELETE USING (true);
