@@ -8,6 +8,7 @@ let currentUser = null;
 let schedules = [];
 let topics = [];
 let currentFilter = 'all';
+let galleryItems = [];
 
 // 초기 데이터 로드
 async function initializeData() {
@@ -15,7 +16,8 @@ async function initializeData() {
         loadUsersFromDB(),
         loadPendingUsersFromDB(),
         loadSchedulesFromDB(),
-        loadTopicsFromDB()
+        loadTopicsFromDB(),
+        loadGalleryFromDB()
     ]);
 
     results.forEach((result, index) => {
@@ -500,4 +502,68 @@ async function saveAttendanceRecordToDB(scheduleId, memberId, attendance, reason
 
         if (error) throw error;
     }
+}
+
+// ============================================
+// 갤러리 관련 함수
+// ============================================
+
+// 갤러리 로드
+async function loadGalleryFromDB() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('gallery')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.warn('갤러리 로드 실패:', error.message);
+            galleryItems = [];
+            return;
+        }
+        galleryItems = data || [];
+    } catch (e) {
+        console.warn('갤러리 DB 연결 실패:', e.message);
+        galleryItems = [];
+    }
+}
+
+// 갤러리 아이템 추가
+async function addGalleryToDB(item) {
+    const { data, error } = await supabaseClient
+        .from('gallery')
+        .insert([{
+            title: item.title,
+            description: item.description || null,
+            image_data: item.image_data,
+            uploader: item.uploader,
+            created_at: new Date().toISOString()
+        }])
+        .select();
+
+    if (error) throw error;
+    return data[0];
+}
+
+// 갤러리 아이템 수정
+async function updateGalleryInDB(itemId, item) {
+    const { error } = await supabaseClient
+        .from('gallery')
+        .update({
+            title: item.title,
+            description: item.description
+        })
+        .eq('id', itemId);
+
+    if (error) throw error;
+}
+
+// 갤러리 아이템 삭제
+async function deleteGalleryFromDB(itemId) {
+    const { error } = await supabaseClient
+        .from('gallery')
+        .delete()
+        .eq('id', itemId);
+
+    if (error) throw error;
 }
