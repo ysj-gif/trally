@@ -90,9 +90,6 @@
                     <div class="menu-item" onclick="showPage('attendance')">
                         📋 출석부
                     </div>
-                    <div class="menu-item" onclick="showPage('gallery')">
-                        🖼️ 갤러리
-                    </div>
                     <div id="adminMenu" class="menu-item hidden" onclick="showPage('admin')">
                         👑 회원 승인
                     </div>
@@ -320,70 +317,6 @@
                             <div class="modal-actions">
                                 <button class="save-btn" onclick="addYear()">추가</button>
                                 <button class="cancel-btn" onclick="closeModal('addYearModal')">취소</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 갤러리 페이지 -->
-                    <div id="galleryPage" class="content-page hidden">
-                        <h2 class="page-title">갤러리</h2>
-
-                        <!-- 사진 추가 버튼 -->
-                        <div class="schedule-buttons hidden" id="galleryButtons">
-                            <button class="add-btn" onclick="showGalleryForm()">+ 사진 추가</button>
-                        </div>
-
-                        <!-- 사진 추가 폼 -->
-                        <div id="galleryFormContainer" class="hidden">
-                            <form class="schedule-form" onsubmit="saveGalleryItem(event)">
-                                <input type="hidden" id="galleryEditId">
-                                <div class="form-row">
-                                    <div class="form-col form-col-full">
-                                        <label>제목</label>
-                                        <input type="text" id="galleryTitle" placeholder="사진 제목" required>
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-col form-col-full">
-                                        <label>설명 (선택)</label>
-                                        <textarea id="galleryDescription" placeholder="사진에 대한 설명" rows="2"></textarea>
-                                    </div>
-                                </div>
-                                <div class="form-row" id="galleryImageInputRow">
-                                    <div class="form-col form-col-full">
-                                        <label>사진 선택</label>
-                                        <input type="file" id="galleryImage" accept="image/*" onchange="previewGalleryImage(event)">
-                                        <div id="galleryImagePreview" class="gallery-image-preview hidden">
-                                            <img id="galleryPreviewImg" src="" alt="미리보기">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="form-actions">
-                                    <button type="submit" class="save-btn">저장</button>
-                                    <button type="button" class="cancel-btn" onclick="cancelGalleryEdit()">취소</button>
-                                </div>
-                            </form>
-                        </div>
-
-                        <!-- 갤러리 그리드 -->
-                        <div class="gallery-grid" id="galleryGrid"></div>
-                    </div>
-
-                    <!-- 이미지 모달 -->
-                    <div id="imageModal" class="modal hidden">
-                        <div class="image-modal-content">
-                            <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
-                            <img id="modalImage" src="" alt="">
-                            <div class="image-modal-info">
-                                <h3 id="modalTitle"></h3>
-                                <p id="modalDescription"></p>
-                                <p class="modal-meta">
-                                    <span id="modalUploader"></span> · <span id="modalDate"></span>
-                                </p>
-                                <div class="modal-actions hidden" id="modalActions">
-                                    <button class="edit-btn" id="modalEditBtn" onclick="editGalleryFromModal()">수정</button>
-                                    <button class="delete-btn" onclick="deleteGalleryFromModal()">삭제</button>
-                                </div>
                             </div>
                         </div>
                     </div>
