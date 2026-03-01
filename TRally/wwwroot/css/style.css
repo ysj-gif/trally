@@ -327,6 +327,60 @@ body::before {
     line-height: 1.5;
 }
 
+.schedule-table td.location-cell {
+    white-space: normal !important;
+    word-break: break-word;
+    max-width: 120px;
+    min-width: 80px;
+}
+
+.schedule-table td.file-cell {
+    white-space: nowrap;
+    min-width: 70px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-link {
+    color: #1e40af;
+    text-decoration: none;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.file-link:hover {
+    text-decoration: underline;
+}
+
+/* 파일 입력 영역 */
+.file-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.file-info {
+    font-size: 13px;
+    color: #374151;
+    background: #f0f4ff;
+    border-radius: 6px;
+    padding: 6px 10px;
+}
+
+.file-remove-btn {
+    color: #ef4444;
+    cursor: pointer;
+    margin-left: 8px;
+    font-size: 12px;
+}
+
+.file-remove-btn:hover {
+    text-decoration: underline;
+}
+
 .schedule-table th {
     background: linear-gradient(135deg, #1e40af 0%, #1e3a5f 100%);
     color: white;
@@ -1266,6 +1320,38 @@ body::before {
     font-weight: 600;
     color: #1e40af;
     vertical-align: middle;
+}
+
+.schedule-cell.has-topic {
+    cursor: help;
+    text-decoration: underline dotted #1e40af;
+    text-underline-offset: 3px;
+}
+
+/* 출석부 날짜 호버 툴팁 */
+.attendance-tooltip {
+    position: fixed;
+    background: #1e3a5f;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    max-width: 250px;
+    line-height: 1.5;
+    word-break: break-word;
+    white-space: normal;
+    z-index: 9999;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+}
+
+.attendance-tooltip::before {
+    content: '📌 토론 주제';
+    display: block;
+    font-size: 11px;
+    color: #93c5fd;
+    margin-bottom: 4px;
+    font-weight: 600;
 }
 
 /* 출석 입력 */

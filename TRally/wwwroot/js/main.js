@@ -184,13 +184,18 @@ function loadSchedules() {
             row.style.cursor = 'pointer';
             row.ondblclick = () => editSchedule(schedule.id);
         }
+        const fileCell = schedule.file_url
+            ? `<a class="file-link" href="${schedule.file_url}" target="_blank" title="${schedule.file_name || '파일'}">📎 ${schedule.file_name || '자료'}</a>`
+            : '';
+
         row.innerHTML = `
             <td><span class="schedule-number-badge">${schedule.number || ''}회</span></td>
             <td>${schedule.presenter || ''}</td>
             <td>${schedule.moderator || ''}</td>
             <td>${formatDate(schedule.date)}</td>
             <td class="topic-cell">${schedule.topic || ''}</td>
-            <td>${schedule.location || ''}</td>
+            <td class="file-cell">${fileCell}</td>
+            <td class="location-cell">${schedule.location || ''}</td>
             <td>${schedule.guest || ''}</td>
             <td class="remarks-cell">${schedule.remarks || ''}</td>
             ${isLoggedIn ? `
@@ -220,6 +225,11 @@ function showScheduleForm() {
     document.getElementById('scheduleLocation').value = '';
     document.getElementById('scheduleGuest').value = '';
     document.getElementById('scheduleRemarks').value = '';
+    document.getElementById('scheduleFile').value = '';
+    document.getElementById('scheduleFileUrl').value = '';
+    document.getElementById('scheduleFileName').value = '';
+    document.getElementById('scheduleFileInfo').classList.add('hidden');
+    document.getElementById('scheduleFileInfo').textContent = '';
 }
 
 // 날짜를 ISO 형식(YYYY-MM-DD)으로 변환
@@ -270,6 +280,25 @@ function editSchedule(scheduleId) {
     document.getElementById('scheduleLocation').value = schedule.location || '';
     document.getElementById('scheduleGuest').value = schedule.guest || '';
     document.getElementById('scheduleRemarks').value = schedule.remarks || '';
+    document.getElementById('scheduleFile').value = '';
+    document.getElementById('scheduleFileUrl').value = schedule.file_url || '';
+    document.getElementById('scheduleFileName').value = schedule.file_name || '';
+
+    const fileInfo = document.getElementById('scheduleFileInfo');
+    if (schedule.file_url && schedule.file_name) {
+        fileInfo.innerHTML = `📎 현재 파일: <a href="${schedule.file_url}" target="_blank">${schedule.file_name}</a> <span class="file-remove-btn" onclick="removeScheduleFile()">✕ 제거</span>`;
+        fileInfo.classList.remove('hidden');
+    } else {
+        fileInfo.classList.add('hidden');
+        fileInfo.textContent = '';
+    }
+}
+
+// 파일 제거 (수정 폼에서)
+function removeScheduleFile() {
+    document.getElementById('scheduleFileUrl').value = '';
+    document.getElementById('scheduleFileName').value = '';
+    document.getElementById('scheduleFileInfo').classList.add('hidden');
 }
 
 // 일정 저장 (추가/수정)
@@ -277,6 +306,25 @@ async function saveSchedule(event) {
     event.preventDefault();
 
     const editId = document.getElementById('scheduleEditId').value;
+    const fileInput = document.getElementById('scheduleFile');
+
+    let file_url = document.getElementById('scheduleFileUrl').value || null;
+    let file_name = document.getElementById('scheduleFileName').value || null;
+
+    // 새 파일이 선택된 경우 업로드
+    if (fileInput.files && fileInput.files[0]) {
+        try {
+            const uploaded = await uploadScheduleFile(fileInput.files[0]);
+            file_url = uploaded.url;
+            file_name = uploaded.name;
+        } catch (uploadError) {
+            console.error('파일 업로드 오류:', uploadError);
+            alert('파일 업로드에 실패했습니다.\nSupabase Storage에 schedules-files 버킷이 있는지 확인하세요.\n일정은 파일 없이 저장됩니다.');
+            file_url = null;
+            file_name = null;
+        }
+    }
+
     const schedule = {
         number: parseInt(document.getElementById('scheduleNumber').value) || null,
         presenter: document.getElementById('schedulePresenter').value || null,
@@ -285,7 +333,9 @@ async function saveSchedule(event) {
         topic: document.getElementById('scheduleTopic').value || null,
         location: document.getElementById('scheduleLocation').value || null,
         guest: document.getElementById('scheduleGuest').value || null,
-        remarks: document.getElementById('scheduleRemarks').value || null
+        remarks: document.getElementById('scheduleRemarks').value || null,
+        file_url,
+        file_name
     };
 
     try {
@@ -754,6 +804,61 @@ async function selectYear(yearId) {
     renderYearTabs();
 }
 
+// 출석부 날짜 → 일정 주제 매칭
+function findTopicForAttendanceDate(scheduleDate) {
+    const yearObj = attendanceYears.find(y => y.id === currentYearId);
+    if (!yearObj) return null;
+
+    const year = yearObj.year;
+    const parts = scheduleDate.split('/');
+    if (parts.length < 2) return null;
+
+    const month = parseInt(parts[0]);
+    const day = parseInt(parts[1]);
+
+    const matched = schedules.find(s => {
+        if (!s.date) return false;
+        const isoMatch = String(s.date).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (isoMatch) {
+            return parseInt(isoMatch[1]) === year &&
+                   parseInt(isoMatch[2]) === month &&
+                   parseInt(isoMatch[3]) === day;
+        }
+        return false;
+    });
+
+    return (matched && matched.topic) ? matched.topic : null;
+}
+
+// 툴팁 표시
+function showAttendanceTooltip(event, cell) {
+    const topic = cell.getAttribute('data-topic');
+    if (!topic) return;
+
+    const tooltip = document.getElementById('attendanceTooltip');
+    tooltip.textContent = topic;
+    tooltip.classList.remove('hidden');
+
+    const rect = cell.getBoundingClientRect();
+    let left = rect.right + 10;
+    let top = event.clientY - 20;
+
+    // 오른쪽 공간 부족 시 왼쪽에 표시
+    if (left + 260 > window.innerWidth) {
+        left = rect.left - 260;
+    }
+    if (top < 8) top = 8;
+    if (top + 80 > window.innerHeight) top = window.innerHeight - 88;
+
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+}
+
+// 툴팁 숨기기
+function hideAttendanceTooltip() {
+    document.getElementById('attendanceTooltip').classList.add('hidden');
+}
+
 // 출석부 테이블 렌더링
 function renderAttendanceTable() {
     const thead = document.getElementById('attendanceTableHead');
@@ -788,7 +893,13 @@ function renderAttendanceTable() {
 
             // 첫 번째 열: 일정 날짜 (첫 행에만 rowspan)
             if (rowIndex === 0) {
-                tr.innerHTML = `<td class="schedule-cell" rowspan="3">${schedule.schedule_date}</td>`;
+                const topic = findTopicForAttendanceDate(schedule.schedule_date);
+                const topicAttr = topic ? `data-topic="${topic.replace(/"/g, '&quot;')}"` : '';
+                const topicClass = topic ? ' has-topic' : '';
+                const topicEvents = topic
+                    ? `onmouseenter="showAttendanceTooltip(event, this)" onmouseleave="hideAttendanceTooltip()"`
+                    : '';
+                tr.innerHTML = `<td class="schedule-cell${topicClass}" rowspan="3" ${topicAttr} ${topicEvents}>${schedule.schedule_date}</td>`;
             }
 
             // 각 멤버별 셀

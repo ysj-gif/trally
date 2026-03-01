@@ -148,6 +148,17 @@
                                         <textarea id="scheduleRemarks" placeholder="비고" rows="2"></textarea>
                                     </div>
                                 </div>
+                                <div class="form-row">
+                                    <div class="form-col form-col-full">
+                                        <label>요약 파일 (PDF 등)</label>
+                                        <div class="file-input-wrapper">
+                                            <input type="file" id="scheduleFile" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt">
+                                            <div id="scheduleFileInfo" class="file-info hidden"></div>
+                                        </div>
+                                        <input type="hidden" id="scheduleFileUrl">
+                                        <input type="hidden" id="scheduleFileName">
+                                    </div>
+                                </div>
                                 <div class="form-actions">
                                     <button type="submit" class="save-btn">저장</button>
                                     <button type="button" class="cancel-btn" onclick="cancelScheduleEdit()">취소</button>
@@ -178,6 +189,7 @@
                                             <th>사회자</th>
                                             <th>날짜</th>
                                             <th>주제</th>
+                                            <th>요약</th>
                                             <th>장소</th>
                                             <th>게스트</th>
                                             <th>비고</th>
@@ -459,6 +471,9 @@
             </div>
         </div>
     </div>
+
+    <!-- 출석부 날짜 툴팁 -->
+    <div id="attendanceTooltip" class="attendance-tooltip hidden"></div>
 
     <!-- 외부 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

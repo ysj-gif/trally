@@ -224,7 +224,9 @@ async function addScheduleToDB(schedule) {
             topic: schedule.topic,
             location: schedule.location,
             guest: schedule.guest,
-            remarks: schedule.remarks
+            remarks: schedule.remarks,
+            file_url: schedule.file_url,
+            file_name: schedule.file_name
         }])
         .select();
 
@@ -244,11 +246,44 @@ async function updateScheduleInDB(scheduleId, schedule) {
             topic: schedule.topic,
             location: schedule.location,
             guest: schedule.guest,
-            remarks: schedule.remarks
+            remarks: schedule.remarks,
+            file_url: schedule.file_url,
+            file_name: schedule.file_name
         })
         .eq('id', scheduleId);
 
     if (error) throw error;
+}
+
+// 일정 파일 업로드 (Supabase Storage)
+async function uploadScheduleFile(file) {
+    const ext = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${file.name}`;
+
+    const { error } = await supabaseClient.storage
+        .from('schedules-files')
+        .upload(fileName, file, { upsert: false });
+
+    if (error) throw error;
+
+    const { data: urlData } = supabaseClient.storage
+        .from('schedules-files')
+        .getPublicUrl(fileName);
+
+    return { url: urlData.publicUrl, name: file.name };
+}
+
+// 일정 파일 삭제 (Supabase Storage)
+async function deleteScheduleFile(fileUrl) {
+    try {
+        // URL에서 파일 경로 추출
+        const urlParts = fileUrl.split('/schedules-files/');
+        if (urlParts.length < 2) return;
+        const filePath = decodeURIComponent(urlParts[1]);
+        await supabaseClient.storage.from('schedules-files').remove([filePath]);
+    } catch (e) {
+        console.warn('파일 삭제 실패:', e.message);
+    }
 }
 
 // 일정 삭제
