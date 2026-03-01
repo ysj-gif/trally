@@ -27,14 +27,25 @@ app.UseResponseCompression();
 var provider = new FileExtensionContentTypeProvider();
 provider.Mappings[".md"] = "text/markdown";
 
-// 정적 파일 제공 활성화 (캐싱 포함)
+// 정적 파일 제공 활성화
 app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
     ContentTypeProvider = provider,
     OnPrepareResponse = ctx =>
     {
-        ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=86400");
+        // 개발 환경: 캐시 비활성화 (수정 내용 즉시 반영)
+        // 운영 환경: 24시간 캐시 적용
+        if (app.Environment.IsDevelopment())
+        {
+            ctx.Context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+            ctx.Context.Response.Headers["Pragma"] = "no-cache";
+            ctx.Context.Response.Headers["Expires"] = "0";
+        }
+        else
+        {
+            ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=86400");
+        }
     }
 });
 

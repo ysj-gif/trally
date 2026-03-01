@@ -93,6 +93,9 @@
                     <div class="menu-item" onclick="showPage('gallery')">
                         🖼️ 갤러리
                     </div>
+                    <div class="menu-item" onclick="showPage('requests')">
+                        📨 요청사항
+                    </div>
                     <div id="adminMenu" class="menu-item hidden" onclick="showPage('admin')">
                         👑 회원 승인
                     </div>
@@ -385,6 +388,51 @@
                                     <button class="delete-btn" onclick="deleteGalleryFromModal()">삭제</button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- 요청사항 페이지 -->
+                    <div id="requestsPage" class="content-page hidden">
+                        <h2 class="page-title">요청사항</h2>
+
+                        <!-- 요청 추가 버튼 -->
+                        <div class="schedule-buttons" id="requestButtons">
+                            <button class="add-btn" onclick="showRequestForm()">+ 요청 추가</button>
+                        </div>
+
+                        <!-- 요청 추가 폼 -->
+                        <div id="requestFormContainer" class="hidden">
+                            <form class="schedule-form" onsubmit="addRequest(event)">
+                                <div class="form-row">
+                                    <div class="form-col req-name-input-col">
+                                        <label>이름</label>
+                                        <input type="text" id="requestName" placeholder="이름 입력" required>
+                                    </div>
+                                    <div class="form-col form-col-full">
+                                        <label>요청사항</label>
+                                        <textarea id="requestContent" placeholder="요청사항을 입력하세요" rows="3" required></textarea>
+                                    </div>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="save-btn">등록</button>
+                                    <button type="button" class="cancel-btn" onclick="cancelRequestForm()">취소</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- 요청 테이블 -->
+                        <div class="requests-table-wrapper">
+                            <table class="requests-table">
+                                <thead>
+                                    <tr>
+                                        <th class="req-name-col">이름</th>
+                                        <th class="req-content-col">요청사항</th>
+                                        <th class="req-status-col">조치반영</th>
+                                        <th class="req-action-col hidden" id="requestsActionHeader">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="requestsTableBody"></tbody>
+                            </table>
                         </div>
                     </div>
 

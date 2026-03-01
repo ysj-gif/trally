@@ -9,6 +9,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 상단 스크롤바 동기화
     initScrollSync();
 
+    // 세션 복원 시도 (새로고침 시 로그인 유지)
+    const restored = await restoreSession();
+    if (restored) {
+        const savedPage = sessionStorage.getItem('currentPage');
+        if (savedPage && savedPage !== 'schedule') {
+            showPage(savedPage);
+        }
+    }
+
     console.log('TRally 앱 초기화 완료');
 });
 
@@ -105,10 +114,14 @@ function showPage(pageName) {
         'topics': [document.getElementById('topicsPage'), 1],
         'attendance': [document.getElementById('attendancePage'), 2],
         'gallery': [document.getElementById('galleryPage'), 3],
-        'admin': [document.getElementById('adminPage'), 4]
+        'requests': [document.getElementById('requestsPage'), 4],
+        'admin': [document.getElementById('adminPage'), 5]
     };
 
     if (pages[pageName]) {
+        // 현재 페이지 저장
+        sessionStorage.setItem('currentPage', pageName);
+
         pages[pageName][0].classList.remove('hidden');
         document.querySelectorAll('.menu-item')[pages[pageName][1]].classList.add('active');
 
@@ -132,6 +145,15 @@ function showPage(pageName) {
             // 로그인 사용자는 추가 버튼 표시
             if (currentUser) {
                 document.getElementById('galleryButtons').classList.remove('hidden');
+            }
+        }
+
+        // 요청사항 페이지면 요청사항 로드
+        if (pageName === 'requests') {
+            loadRequests();
+            // 추가 버튼은 항상 표시 (로그인 불필요)
+            if (currentUser && currentUser.role === 'admin') {
+                document.getElementById('requestsActionHeader').classList.remove('hidden');
             }
         }
     }
@@ -167,7 +189,7 @@ function loadSchedules() {
             <td>${schedule.presenter || ''}</td>
             <td>${schedule.moderator || ''}</td>
             <td>${formatDate(schedule.date)}</td>
-            <td>${schedule.topic || ''}</td>
+            <td class="topic-cell">${schedule.topic || ''}</td>
             <td>${schedule.location || ''}</td>
             <td>${schedule.guest || ''}</td>
             <td class="remarks-cell">${schedule.remarks || ''}</td>
@@ -1254,3 +1276,113 @@ document.addEventListener('click', (e) => {
         closeImageModal();
     }
 });
+
+// ============================================
+// 요청사항 관련 함수
+// ============================================
+
+// 요청사항 로드
+async function loadRequests() {
+    await loadRequestsFromDB();
+    displayRequests();
+}
+
+// 요청사항 표시
+function displayRequests() {
+    const tbody = document.getElementById('requestsTableBody');
+    const isAdmin = currentUser && currentUser.role === 'admin';
+
+    tbody.innerHTML = '';
+
+    if (requestItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="requests-empty">등록된 요청사항이 없습니다.</td></tr>`;
+        return;
+    }
+
+    requestItems.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = item.is_resolved ? 'request-row resolved' : 'request-row';
+
+        const checkbox = isAdmin
+            ? `<input type="checkbox" class="resolved-checkbox" ${item.is_resolved ? 'checked' : ''}
+                onchange="toggleRequestResolved('${item.id}', this.checked)">`
+            : `<input type="checkbox" class="resolved-checkbox" ${item.is_resolved ? 'checked' : ''} disabled>`;
+
+        const actionCell = isAdmin
+            ? `<td class="req-action-cell">
+                <button class="delete-btn" onclick="deleteRequest('${item.id}')">삭제</button>
+               </td>`
+            : '';
+
+        tr.innerHTML = `
+            <td class="req-name-cell">${item.name}</td>
+            <td class="req-content-cell">${item.content}</td>
+            <td class="req-status-cell">${checkbox}</td>
+            ${actionCell}
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// 요청 추가 폼 표시
+function showRequestForm() {
+    document.getElementById('requestFormContainer').classList.remove('hidden');
+    document.getElementById('requestButtons').classList.add('hidden');
+    document.getElementById('requestName').value = '';
+    document.getElementById('requestContent').value = '';
+}
+
+// 요청 추가 폼 취소
+function cancelRequestForm() {
+    document.getElementById('requestFormContainer').classList.add('hidden');
+    document.getElementById('requestButtons').classList.remove('hidden');
+}
+
+// 요청 추가
+async function addRequest(event) {
+    event.preventDefault();
+    const name = document.getElementById('requestName').value.trim();
+    const content = document.getElementById('requestContent').value.trim();
+
+    if (!name || !content) return;
+
+    try {
+        await addRequestToDB(name, content);
+        cancelRequestForm();
+        await loadRequests();
+    } catch (error) {
+        console.error('요청사항 추가 오류:', error);
+        alert('요청사항 등록 중 오류가 발생했습니다.');
+    }
+}
+
+// 조치반영여부 토글 (관리자 전용)
+async function toggleRequestResolved(itemId, isResolved) {
+    try {
+        await updateRequestResolvedInDB(itemId, isResolved);
+        // 로컬 데이터 업데이트 (리렌더링 없이)
+        const item = requestItems.find(r => r.id === itemId);
+        if (item) {
+            item.is_resolved = isResolved;
+            // 행 스타일만 갱신
+            const checkboxes = document.querySelectorAll('.resolved-checkbox');
+            displayRequests();
+        }
+    } catch (error) {
+        console.error('조치반영 업데이트 오류:', error);
+        alert('업데이트 중 오류가 발생했습니다.');
+    }
+}
+
+// 요청사항 삭제 (관리자 전용)
+async function deleteRequest(itemId) {
+    if (!confirm('이 요청사항을 삭제하시겠습니까?')) return;
+
+    try {
+        await deleteRequestFromDB(itemId);
+        await loadRequests();
+    } catch (error) {
+        console.error('요청사항 삭제 오류:', error);
+        alert('삭제 중 오류가 발생했습니다.');
+    }
+}

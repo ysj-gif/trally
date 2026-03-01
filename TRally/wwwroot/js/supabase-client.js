@@ -9,6 +9,7 @@ let schedules = [];
 let topics = [];
 let currentFilter = 'all';
 let galleryItems = [];
+let requestItems = [];
 
 // 초기 데이터 로드
 async function initializeData() {
@@ -17,7 +18,8 @@ async function initializeData() {
         loadPendingUsersFromDB(),
         loadSchedulesFromDB(),
         loadTopicsFromDB(),
-        loadGalleryFromDB()
+        loadGalleryFromDB(),
+        loadRequestsFromDB()
     ]);
 
     results.forEach((result, index) => {
@@ -566,4 +568,106 @@ async function deleteGalleryFromDB(itemId) {
         .eq('id', itemId);
 
     if (error) throw error;
+}
+
+// ============================================
+// 요청사항 관련 함수 (Supabase 저장)
+// ============================================
+
+// 요청사항 로드
+async function loadRequestsFromDB() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('requests')
+            .select('*')
+            .order('created_at', { ascending: true });
+
+        if (error) {
+            console.warn('요청사항 Supabase 로드 실패, 로컬 데이터 사용:', error.message);
+            // Supabase 테이블 없을 때 localStorage 폴백
+            const local = localStorage.getItem('trally_requests');
+            requestItems = local ? JSON.parse(local) : [];
+            return;
+        }
+        requestItems = data || [];
+    } catch (e) {
+        console.warn('요청사항 DB 연결 실패, 로컬 데이터 사용:', e.message);
+        const local = localStorage.getItem('trally_requests');
+        requestItems = local ? JSON.parse(local) : [];
+    }
+}
+
+// 요청사항 추가
+async function addRequestToDB(name, content) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('requests')
+            .insert([{
+                name: name,
+                content: content,
+                is_resolved: false,
+                created_at: new Date().toISOString()
+            }])
+            .select();
+
+        if (error) throw error;
+        return data[0];
+    } catch (e) {
+        // Supabase 실패 시 localStorage에 저장
+        console.warn('Supabase 저장 실패, 로컬 저장:', e.message);
+        const newItem = {
+            id: 'local_' + Date.now(),
+            name: name,
+            content: content,
+            is_resolved: false,
+            created_at: new Date().toISOString()
+        };
+        const local = localStorage.getItem('trally_requests');
+        const items = local ? JSON.parse(local) : [];
+        items.push(newItem);
+        localStorage.setItem('trally_requests', JSON.stringify(items));
+        return newItem;
+    }
+}
+
+// 조치반영여부 업데이트 (관리자 전용)
+async function updateRequestResolvedInDB(itemId, isResolved) {
+    try {
+        const { error } = await supabaseClient
+            .from('requests')
+            .update({ is_resolved: isResolved })
+            .eq('id', itemId);
+
+        if (error) throw error;
+    } catch (e) {
+        // localStorage 업데이트
+        const local = localStorage.getItem('trally_requests');
+        if (local) {
+            const items = JSON.parse(local);
+            const idx = items.findIndex(r => r.id === itemId);
+            if (idx >= 0) {
+                items[idx].is_resolved = isResolved;
+                localStorage.setItem('trally_requests', JSON.stringify(items));
+            }
+        }
+    }
+}
+
+// 요청사항 삭제 (관리자 전용)
+async function deleteRequestFromDB(itemId) {
+    try {
+        const { error } = await supabaseClient
+            .from('requests')
+            .delete()
+            .eq('id', itemId);
+
+        if (error) throw error;
+    } catch (e) {
+        // localStorage 삭제
+        const local = localStorage.getItem('trally_requests');
+        if (local) {
+            const items = JSON.parse(local).filter(r => r.id !== itemId);
+            localStorage.setItem('trally_requests', JSON.stringify(items));
+        }
+    }
 }

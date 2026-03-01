@@ -93,6 +93,26 @@ async function sendUserNotification(user, approved) {
     }
 }
 
+// 로그인 후 UI 설정 (로그인/세션복원 공통)
+async function applyLoginState(user) {
+    currentUser = user;
+    document.getElementById('currentUser').textContent = user.name;
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('mainPage').style.display = 'block';
+
+    if (user.role === 'admin') {
+        document.getElementById('adminMenu').classList.remove('hidden');
+    }
+
+    loadSchedules();
+    loadTopics();
+    if (user.role === 'admin') {
+        await loadPendingUsersFromDB();
+        loadPendingUsers();
+        loadApprovedMembers();
+    }
+}
+
 // 로그인
 async function login(event) {
     event.preventDefault();
@@ -103,22 +123,11 @@ async function login(event) {
         const user = await authenticateUser(username, password);
 
         if (user) {
-            currentUser = user;
-            document.getElementById('currentUser').textContent = user.name;
-            document.getElementById('loginPage').classList.add('hidden');
-            document.getElementById('mainPage').style.display = 'block';
+            // 세션 저장
+            sessionStorage.setItem('savedUser', JSON.stringify(user));
+            sessionStorage.setItem('currentPage', 'schedule');
 
-            if (user.role === 'admin') {
-                document.getElementById('adminMenu').classList.remove('hidden');
-            }
-
-            loadSchedules();
-            loadTopics();
-            if (user.role === 'admin') {
-                await loadPendingUsersFromDB();
-                loadPendingUsers();
-                loadApprovedMembers();
-            }
+            await applyLoginState(user);
         } else {
             alert('아이디 또는 비밀번호가 올바르지 않거나 승인 대기 중입니다.');
         }
@@ -131,11 +140,41 @@ async function login(event) {
 // 로그아웃
 function logout() {
     currentUser = null;
+    sessionStorage.removeItem('savedUser');
+    sessionStorage.removeItem('currentPage');
     document.getElementById('loginPage').classList.remove('hidden');
     document.getElementById('mainPage').style.display = 'none';
     document.getElementById('adminMenu').classList.add('hidden');
     document.getElementById('username').value = '';
     document.getElementById('password').value = '';
+}
+
+// 세션 복원 (새로고침 시)
+async function restoreSession() {
+    const savedUserStr = sessionStorage.getItem('savedUser');
+    if (!savedUserStr) return false;
+
+    try {
+        const savedUser = JSON.parse(savedUserStr);
+        // DB에서 사용자 재확인 (승인 취소 등 변경사항 반영)
+        const user = await authenticateUser(savedUser.username, savedUser.password);
+        if (!user) {
+            sessionStorage.removeItem('savedUser');
+            sessionStorage.removeItem('currentPage');
+            return false;
+        }
+
+        // 세션 업데이트 (최신 정보 반영)
+        sessionStorage.setItem('savedUser', JSON.stringify(user));
+
+        await applyLoginState(user);
+        return true;
+    } catch (e) {
+        console.error('세션 복원 오류:', e);
+        sessionStorage.removeItem('savedUser');
+        sessionStorage.removeItem('currentPage');
+        return false;
+    }
 }
 
 // 회원 승인
