@@ -7,7 +7,7 @@ let pendingUsers = [];
 let currentUser = null;
 let schedules = [];
 let topics = [];
-let currentFilter = 'all';
+let topicFilters = { status: 'all', authors: [], categories: [] };
 let galleryItems = [];
 let requestItems = [];
 
@@ -293,6 +293,49 @@ async function deleteScheduleFromDB(scheduleId) {
         .delete()
         .eq('id', scheduleId);
 
+    if (error) throw error;
+}
+
+// 일정 댓글 로드
+async function loadScheduleCommentsFromDB(scheduleId) {
+    const { data, error } = await supabaseClient
+        .from('schedule_comments')
+        .select('*')
+        .eq('schedule_id', scheduleId)
+        .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+}
+
+// 일정별 댓글 수 로드 (전체)
+async function loadAllScheduleCommentCountsFromDB() {
+    const { data, error } = await supabaseClient
+        .from('schedule_comments')
+        .select('schedule_id');
+    if (error) return {};
+    const counts = {};
+    (data || []).forEach(row => {
+        counts[row.schedule_id] = (counts[row.schedule_id] || 0) + 1;
+    });
+    return counts;
+}
+
+// 일정 댓글 추가
+async function addScheduleCommentToDB(scheduleId, author, content) {
+    const { data, error } = await supabaseClient
+        .from('schedule_comments')
+        .insert([{ schedule_id: scheduleId, author, content, created_at: new Date().toISOString() }])
+        .select();
+    if (error) throw error;
+    return data[0];
+}
+
+// 일정 댓글 삭제
+async function deleteScheduleCommentFromDB(commentId) {
+    const { error } = await supabaseClient
+        .from('schedule_comments')
+        .delete()
+        .eq('id', commentId);
     if (error) throw error;
 }
 
@@ -682,6 +725,30 @@ async function updateRequestResolvedInDB(itemId, isResolved) {
             const idx = items.findIndex(r => r.id === itemId);
             if (idx >= 0) {
                 items[idx].is_resolved = isResolved;
+                localStorage.setItem('trally_requests', JSON.stringify(items));
+            }
+        }
+    }
+}
+
+// 요청사항 내용 수정
+async function updateRequestContentInDB(itemId, name, content) {
+    try {
+        const { error } = await supabaseClient
+            .from('requests')
+            .update({ name: name, content: content })
+            .eq('id', itemId);
+
+        if (error) throw error;
+    } catch (e) {
+        // localStorage 업데이트
+        const local = localStorage.getItem('trally_requests');
+        if (local) {
+            const items = JSON.parse(local);
+            const idx = items.findIndex(r => r.id === itemId);
+            if (idx >= 0) {
+                items[idx].name = name;
+                items[idx].content = content;
                 localStorage.setItem('trally_requests', JSON.stringify(items));
             }
         }

@@ -152,11 +152,9 @@
                                     <div class="form-col form-col-full">
                                         <label>요약 파일 (PDF 등)</label>
                                         <div class="file-input-wrapper">
-                                            <input type="file" id="scheduleFile" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt">
-                                            <div id="scheduleFileInfo" class="file-info hidden"></div>
+                                            <input type="file" id="scheduleFile" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt" multiple>
+                                            <div id="scheduleFileList" class="file-list"></div>
                                         </div>
-                                        <input type="hidden" id="scheduleFileUrl">
-                                        <input type="hidden" id="scheduleFileName">
                                     </div>
                                 </div>
                                 <div class="form-actions">
@@ -185,7 +183,8 @@
                                     <thead>
                                         <tr>
                                             <th>회차</th>
-                                            <th>발제자</th>
+                                            <th>댓글</th>
+                                            <th class="presenter-col">발제자</th>
                                             <th>사회자</th>
                                             <th>날짜</th>
                                             <th>주제</th>
@@ -235,8 +234,21 @@
                                 </div>
                                 <div class="form-row">
                                     <div class="form-col form-col-full">
-                                        <label>키워드 (선택)</label>
-                                        <input type="text" id="topicKeywords" placeholder="예: AI, 심리학, 사회">
+                                        <label>주제 분야</label>
+                                        <input type="hidden" id="topicCategory">
+                                        <div class="topic-cat-pick-group" id="topicCategorySelect">
+                                            <button type="button" class="topic-cat-pick" data-cat="기술/미래" onclick="selectTopicCategory('기술/미래')">⚙️ 기술/미래</button>
+                                            <button type="button" class="topic-cat-pick" data-cat="사회/문화" onclick="selectTopicCategory('사회/문화')">🌍 사회/문화</button>
+                                            <button type="button" class="topic-cat-pick" data-cat="관계/소통" onclick="selectTopicCategory('관계/소통')">💬 관계/소통</button>
+                                            <button type="button" class="topic-cat-pick" data-cat="심리/인식" onclick="selectTopicCategory('심리/인식')">🧠 심리/인식</button>
+                                            <button type="button" class="topic-cat-pick" data-cat="철학/가치관" onclick="selectTopicCategory('철학/가치관')">💡 철학/가치관</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-row hidden" id="topicCustomKwRow">
+                                    <div class="form-col form-col-full">
+                                        <label>추가 키워드 <span class="admin-label">관리자</span></label>
+                                        <input type="text" id="topicKeywords" placeholder="예: AI, 포스트모던, 창의성">
                                     </div>
                                 </div>
                                 <div class="form-actions">
@@ -252,17 +264,43 @@
                             <button class="add-btn" onclick="showTopicForm()">+ 새 주제 추가</button>
                         </div>
 
-                        <div class="topic-filters">
-                            <button class="filter-btn active" onclick="filterByAuthor('all')">전체</button>
-                            <button class="filter-btn" onclick="filterByAuthor('다흰')">다흰</button>
-                            <button class="filter-btn" onclick="filterByAuthor('민구')">민구</button>
-                            <button class="filter-btn" onclick="filterByAuthor('아름')">아름</button>
-                            <button class="filter-btn" onclick="filterByAuthor('승종')">승종</button>
-                            <button class="filter-btn" onclick="filterByAuthor('원혁')">원혁</button>
-                            <button class="filter-btn" onclick="filterByAuthor('동원')">동원</button>
-                            <button class="filter-btn" onclick="filterByAuthor('샘')">샘</button>
-                            <button class="filter-btn" onclick="filterByAuthor('유정')">유정</button>
-                            <button class="filter-btn" onclick="filterByAuthor('강석')">강석</button>
+                        <div class="topic-filter-panel">
+                            <div class="filter-group">
+                                <span class="filter-group-label">진행 여부</span>
+                                <div class="filter-pills">
+                                    <button class="filter-pill status-pill active" id="statusAll" onclick="setStatusFilter('all')">전체</button>
+                                    <button class="filter-pill status-pill" id="statusPending" onclick="setStatusFilter('pending')">미진행</button>
+                                    <button class="filter-pill status-pill" id="statusCompleted" onclick="setStatusFilter('completed')">진행됨</button>
+                                </div>
+                            </div>
+                            <div class="filter-group">
+                                <span class="filter-group-label">제안자</span>
+                                <div class="filter-pills" id="authorFilterPills">
+                                    <button class="filter-pill author-pill" data-author="다흰" onclick="toggleAuthorFilter('다흰')">다흰</button>
+                                    <button class="filter-pill author-pill" data-author="민구" onclick="toggleAuthorFilter('민구')">민구</button>
+                                    <button class="filter-pill author-pill" data-author="아름" onclick="toggleAuthorFilter('아름')">아름</button>
+                                    <button class="filter-pill author-pill" data-author="승종" onclick="toggleAuthorFilter('승종')">승종</button>
+                                    <button class="filter-pill author-pill" data-author="원혁" onclick="toggleAuthorFilter('원혁')">원혁</button>
+                                    <button class="filter-pill author-pill" data-author="동원" onclick="toggleAuthorFilter('동원')">동원</button>
+                                    <button class="filter-pill author-pill" data-author="샘" onclick="toggleAuthorFilter('샘')">샘</button>
+                                    <button class="filter-pill author-pill" data-author="유정" onclick="toggleAuthorFilter('유정')">유정</button>
+                                    <button class="filter-pill author-pill" data-author="강석" onclick="toggleAuthorFilter('강석')">강석</button>
+                                </div>
+                            </div>
+                            <div class="filter-group">
+                                <span class="filter-group-label">주제 분야</span>
+                                <div class="filter-pills" id="categoryFilterPills">
+                                    <button class="filter-pill category-pill" data-category="기술/미래" onclick="toggleCategoryFilter('기술/미래')">⚙️ 기술/미래</button>
+                                    <button class="filter-pill category-pill" data-category="사회/문화" onclick="toggleCategoryFilter('사회/문화')">🌍 사회/문화</button>
+                                    <button class="filter-pill category-pill" data-category="관계/소통" onclick="toggleCategoryFilter('관계/소통')">💬 관계/소통</button>
+                                    <button class="filter-pill category-pill" data-category="심리/인식" onclick="toggleCategoryFilter('심리/인식')">🧠 심리/인식</button>
+                                    <button class="filter-pill category-pill" data-category="철학/가치관" onclick="toggleCategoryFilter('철학/가치관')">💡 철학/가치관</button>
+                                </div>
+                            </div>
+                            <div class="filter-footer">
+                                <button class="filter-reset-btn" onclick="resetTopicFilters()">필터 초기화</button>
+                                <span class="filter-count" id="topicFilterCount"></span>
+                            </div>
                         </div>
                         <div class="topic-content" id="topicContent"></div>
                     </div>
@@ -433,8 +471,8 @@
                         </div>
 
                         <!-- 요청 테이블 -->
-                        <div class="requests-table-wrapper">
-                            <table class="requests-table">
+                        <div class="requests-table-wrapper" id="requestsTableWrapper">
+                            <table class="requests-table" id="requestsTable">
                                 <thead>
                                     <tr>
                                         <th class="req-name-col">이름</th>

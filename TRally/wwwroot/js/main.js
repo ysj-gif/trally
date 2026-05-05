@@ -1,3 +1,41 @@
+// 일정 폼의 현재 파일 목록 (기존 파일 유지용)
+let scheduleCurrentFiles = [];
+
+// 이미 로드된 댓글 패널 추적
+let loadedCommentPanels = new Set();
+
+// 일정 schedule의 파일 목록 파싱 (기존 단일 파일 형식과 호환)
+function parseScheduleFiles(schedule) {
+    if (!schedule.file_url) return [];
+    try {
+        const parsed = JSON.parse(schedule.file_url);
+        if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+    return [{ url: schedule.file_url, name: schedule.file_name || '파일' }];
+}
+
+// 파일 목록 UI 렌더링
+function renderScheduleFileList() {
+    const container = document.getElementById('scheduleFileList');
+    if (!container) return;
+    if (scheduleCurrentFiles.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    container.innerHTML = scheduleCurrentFiles.map((f, i) => `
+        <div class="file-list-item">
+            📎 <a href="${f.url}" target="_blank">${f.name}</a>
+            <span class="file-remove-btn" onclick="removeScheduleFileAt(${i})">✕ 제거</span>
+        </div>
+    `).join('');
+}
+
+// 특정 인덱스의 파일 제거
+function removeScheduleFileAt(index) {
+    scheduleCurrentFiles.splice(index, 1);
+    renderScheduleFileList();
+}
+
 // 앱 초기화
 document.addEventListener('DOMContentLoaded', async () => {
     // EmailJS 초기화
@@ -17,6 +55,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             showPage(savedPage);
         }
     }
+
+    // 스티키 헤더 설정
+    setupStickyHeaders();
 
     console.log('TRally 앱 초기화 완료');
 });
@@ -152,7 +193,7 @@ function showPage(pageName) {
         if (pageName === 'requests') {
             loadRequests();
             // 추가 버튼은 항상 표시 (로그인 불필요)
-            if (currentUser && currentUser.role === 'admin') {
+            if (currentUser) {
                 document.getElementById('requestsActionHeader').classList.remove('hidden');
             }
         }
@@ -177,6 +218,9 @@ function loadSchedules() {
     }
 
     tableBody.innerHTML = '';
+    loadedCommentPanels.clear();
+
+    const totalCols = isLoggedIn ? 11 : 10;
 
     schedules.forEach(schedule => {
         const row = document.createElement('tr');
@@ -184,13 +228,20 @@ function loadSchedules() {
             row.style.cursor = 'pointer';
             row.ondblclick = () => editSchedule(schedule.id);
         }
-        const fileCell = schedule.file_url
-            ? `<a class="file-link" href="${schedule.file_url}" target="_blank" title="${schedule.file_name || '파일'}">📎 ${schedule.file_name || '자료'}</a>`
+        const scheduleFiles = parseScheduleFiles(schedule);
+        const fileCell = scheduleFiles.length > 0
+            ? scheduleFiles.map(f => `<a class="file-link" href="${f.url}" target="_blank" title="${f.name}">📎 ${f.name}</a>`).join('<br>')
             : '';
 
         row.innerHTML = `
             <td><span class="schedule-number-badge">${schedule.number || ''}회</span></td>
-            <td>${schedule.presenter || ''}</td>
+            <td class="comment-cell">
+                <button class="comment-toggle-btn" id="commentToggle_${schedule.id}"
+                    onclick="toggleScheduleComments('${schedule.id}', event)">
+                    💬 <span class="comment-count" id="commentCount_${schedule.id}">-</span>
+                </button>
+            </td>
+            <td class="presenter-col">${schedule.presenter || ''}</td>
             <td>${schedule.moderator || ''}</td>
             <td>${formatDate(schedule.date)}</td>
             <td class="topic-cell">${schedule.topic || ''}</td>
@@ -206,7 +257,33 @@ function loadSchedules() {
             ` : ''}
         `;
         tableBody.appendChild(row);
+
+        // 댓글 펼침 행
+        const commentRow = document.createElement('tr');
+        commentRow.className = 'comment-collapse-row hidden';
+        commentRow.id = `commentRow_${schedule.id}`;
+        const formHtml = currentUser
+            ? `<form class="comment-form" onsubmit="submitScheduleComment(event, '${schedule.id}')">
+                   <input type="text" class="comment-author-input" id="commentAuthor_${schedule.id}"
+                       placeholder="작성자" value="${currentUser.name || ''}" readonly>
+                   <input type="text" class="comment-content-input" id="commentContent_${schedule.id}"
+                       placeholder="댓글을 입력하세요" required>
+                   <button type="submit" class="comment-submit-btn">등록</button>
+               </form>`
+            : `<p class="comment-login-notice">댓글을 달려면 로그인하세요.</p>`;
+        commentRow.innerHTML = `
+            <td colspan="${totalCols}" class="comment-panel-cell">
+                <div class="comment-panel">
+                    <div class="comment-list" id="commentList_${schedule.id}"></div>
+                    ${formHtml}
+                </div>
+            </td>
+        `;
+        tableBody.appendChild(commentRow);
     });
+
+    // 댓글 수 비동기 로드
+    loadAllCommentCounts();
 
     // 스크롤바 너비 업데이트
     setTimeout(updateScrollWidth, 100);
@@ -225,11 +302,9 @@ function showScheduleForm() {
     document.getElementById('scheduleLocation').value = '';
     document.getElementById('scheduleGuest').value = '';
     document.getElementById('scheduleRemarks').value = '';
+    scheduleCurrentFiles = [];
+    renderScheduleFileList();
     document.getElementById('scheduleFile').value = '';
-    document.getElementById('scheduleFileUrl').value = '';
-    document.getElementById('scheduleFileName').value = '';
-    document.getElementById('scheduleFileInfo').classList.add('hidden');
-    document.getElementById('scheduleFileInfo').textContent = '';
 }
 
 // 날짜를 ISO 형식(YYYY-MM-DD)으로 변환
@@ -280,25 +355,9 @@ function editSchedule(scheduleId) {
     document.getElementById('scheduleLocation').value = schedule.location || '';
     document.getElementById('scheduleGuest').value = schedule.guest || '';
     document.getElementById('scheduleRemarks').value = schedule.remarks || '';
+    scheduleCurrentFiles = parseScheduleFiles(schedule);
+    renderScheduleFileList();
     document.getElementById('scheduleFile').value = '';
-    document.getElementById('scheduleFileUrl').value = schedule.file_url || '';
-    document.getElementById('scheduleFileName').value = schedule.file_name || '';
-
-    const fileInfo = document.getElementById('scheduleFileInfo');
-    if (schedule.file_url && schedule.file_name) {
-        fileInfo.innerHTML = `📎 현재 파일: <a href="${schedule.file_url}" target="_blank">${schedule.file_name}</a> <span class="file-remove-btn" onclick="removeScheduleFile()">✕ 제거</span>`;
-        fileInfo.classList.remove('hidden');
-    } else {
-        fileInfo.classList.add('hidden');
-        fileInfo.textContent = '';
-    }
-}
-
-// 파일 제거 (수정 폼에서)
-function removeScheduleFile() {
-    document.getElementById('scheduleFileUrl').value = '';
-    document.getElementById('scheduleFileName').value = '';
-    document.getElementById('scheduleFileInfo').classList.add('hidden');
 }
 
 // 일정 저장 (추가/수정)
@@ -308,22 +367,23 @@ async function saveSchedule(event) {
     const editId = document.getElementById('scheduleEditId').value;
     const fileInput = document.getElementById('scheduleFile');
 
-    let file_url = document.getElementById('scheduleFileUrl').value || null;
-    let file_name = document.getElementById('scheduleFileName').value || null;
+    // 기존 파일 목록 복사 후 새 파일 추가
+    const files = [...scheduleCurrentFiles];
 
-    // 새 파일이 선택된 경우 업로드
-    if (fileInput.files && fileInput.files[0]) {
-        try {
-            const uploaded = await uploadScheduleFile(fileInput.files[0]);
-            file_url = uploaded.url;
-            file_name = uploaded.name;
-        } catch (uploadError) {
-            console.error('파일 업로드 오류:', uploadError);
-            alert('파일 업로드에 실패했습니다.\nSupabase Storage에 schedules-files 버킷이 있는지 확인하세요.\n일정은 파일 없이 저장됩니다.');
-            file_url = null;
-            file_name = null;
+    if (fileInput.files && fileInput.files.length > 0) {
+        for (const file of fileInput.files) {
+            try {
+                const uploaded = await uploadScheduleFile(file);
+                files.push({ url: uploaded.url, name: uploaded.name });
+            } catch (uploadError) {
+                console.error('파일 업로드 오류:', uploadError);
+                alert(`"${file.name}" 업로드에 실패했습니다.\nSupabase Storage에 schedules-files 버킷이 있는지 확인하세요.`);
+            }
         }
     }
+
+    const file_url = files.length > 0 ? JSON.stringify(files) : null;
+    const file_name = files.length > 0 ? files.map(f => f.name).join(', ') : null;
 
     const schedule = {
         number: parseInt(document.getElementById('scheduleNumber').value) || null,
@@ -375,6 +435,115 @@ async function deleteSchedule(scheduleId) {
 function cancelScheduleEdit() {
     document.getElementById('scheduleFormContainer').classList.add('hidden');
     document.getElementById('scheduleButtons').classList.remove('hidden');
+}
+
+// ── 댓글 기능 ─────────────────────────────────────────────────────────
+
+// 전체 댓글 수 비동기 로드
+async function loadAllCommentCounts() {
+    try {
+        const counts = await loadAllScheduleCommentCountsFromDB();
+        schedules.forEach(s => {
+            const el = document.getElementById(`commentCount_${s.id}`);
+            if (el) el.textContent = counts[s.id] || 0;
+        });
+    } catch (e) {
+        schedules.forEach(s => {
+            const el = document.getElementById(`commentCount_${s.id}`);
+            if (el) el.textContent = 0;
+        });
+    }
+}
+
+// 댓글 패널 토글
+async function toggleScheduleComments(scheduleId, event) {
+    event.stopPropagation();
+    const commentRow = document.getElementById(`commentRow_${scheduleId}`);
+    if (!commentRow) return;
+    const isHidden = commentRow.classList.contains('hidden');
+    if (isHidden) {
+        commentRow.classList.remove('hidden');
+        if (!loadedCommentPanels.has(scheduleId)) {
+            await loadScheduleComments(scheduleId);
+            loadedCommentPanels.add(scheduleId);
+        }
+    } else {
+        commentRow.classList.add('hidden');
+    }
+}
+
+// 특정 일정의 댓글 로드 및 렌더링
+async function loadScheduleComments(scheduleId) {
+    const commentList = document.getElementById(`commentList_${scheduleId}`);
+    if (!commentList) return;
+    commentList.innerHTML = '<p class="comment-loading">불러오는 중...</p>';
+    try {
+        const comments = await loadScheduleCommentsFromDB(scheduleId);
+        renderScheduleComments(scheduleId, comments);
+        const countEl = document.getElementById(`commentCount_${scheduleId}`);
+        if (countEl) countEl.textContent = comments.length;
+    } catch (e) {
+        commentList.innerHTML = '<p class="comment-error">댓글을 불러오지 못했습니다.</p>';
+    }
+}
+
+// 댓글 목록 렌더링
+function renderScheduleComments(scheduleId, comments) {
+    const commentList = document.getElementById(`commentList_${scheduleId}`);
+    if (!commentList) return;
+    const isAdmin = currentUser && currentUser.role === 'admin';
+
+    if (comments.length === 0) {
+        commentList.innerHTML = '<p class="comment-empty">아직 댓글이 없습니다.</p>';
+        return;
+    }
+    commentList.innerHTML = comments.map(c => `
+        <div class="comment-item" id="comment_${c.id}">
+            <span class="comment-author">${c.author}</span>
+            <span class="comment-content">${c.content}</span>
+            <span class="comment-date">${formatCommentDate(c.created_at)}</span>
+            ${isAdmin ? `<button class="comment-delete-btn" onclick="deleteScheduleComment('${c.id}', '${scheduleId}')">✕</button>` : ''}
+        </div>
+    `).join('');
+}
+
+// 날짜 포맷 (댓글용)
+function formatCommentDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+// 댓글 등록
+async function submitScheduleComment(event, scheduleId) {
+    event.preventDefault();
+    const authorInput = document.getElementById(`commentAuthor_${scheduleId}`);
+    const contentInput = document.getElementById(`commentContent_${scheduleId}`);
+    const author = authorInput ? authorInput.value.trim() : '';
+    const content = contentInput ? contentInput.value.trim() : '';
+    if (!author || !content) return;
+    try {
+        await addScheduleCommentToDB(scheduleId, author, content);
+        if (contentInput) contentInput.value = '';
+        loadedCommentPanels.delete(scheduleId);
+        await loadScheduleComments(scheduleId);
+        loadedCommentPanels.add(scheduleId);
+    } catch (e) {
+        alert('댓글 등록 중 오류가 발생했습니다.');
+    }
+}
+
+// 댓글 삭제 (관리자 전용)
+async function deleteScheduleComment(commentId, scheduleId) {
+    if (!confirm('이 댓글을 삭제하시겠습니까?')) return;
+    try {
+        await deleteScheduleCommentFromDB(commentId);
+        loadedCommentPanels.delete(scheduleId);
+        await loadScheduleComments(scheduleId);
+        loadedCommentPanels.add(scheduleId);
+    } catch (e) {
+        alert('댓글 삭제 중 오류가 발생했습니다.');
+    }
 }
 
 // 엑셀 업로드
@@ -459,119 +628,301 @@ async function uploadExcel(event) {
     event.target.value = '';
 }
 
-// 주제 로드 (DB 기반)
-function loadTopics() {
-    displayTopics(currentFilter);
+// ── 주제 카테고리 자동 분류 ──────────────────────────────────────────
+const TOPIC_CATEGORIES = [
+    {
+        name: '기술/미래',
+        keywords: [
+            'ai', '인공지능', '기술', '미래', '디지털', '메타버스', '데이터', 'nft', '자동화', '로봇', '과학',
+            '튜링', '버추얼', '증강', '암호화폐', '코딩', '인터넷', '온라인', '버츄어', '지식매체', '제조업',
+            'sf', '특이점', '알고리즘', '플랫폼', '발명', '혁신', '컴퓨터', '스마트', '가상현실', '증강현실',
+            '빅데이터', '자율', '딥러닝', '블록체인', '사이버', '클라우드', '소프트웨어', '하드웨어', '네트워크',
+            '영상', '숏폼', '스트리밍', '유튜브', '넷플릭스', '게임', '앱', 'play to earn', '지능',
+            '유동성지능', '증강인간', '인류멸망', '다른행성', '전기차', '친환경차', '생명공학', '유전자',
+            '의료기술', '에너지', '우주', '빌런의시대', '책읽기의', '종이의미래', '짧은영상', '문서의미래',
+            '4차', '산업혁명', '디지털전환', 'intelligence', '디지털전체주의', 'gpt', 'chatgpt'
+        ]
+    },
+    {
+        name: '사회/문화',
+        keywords: [
+            '사회', '문화', '트렌드', '세대', 'mz', '한국', '젠트리', '도시', '역사', '언론', '정치',
+            '민주주의', '교육', '경제', '출산', '인구', '여행', '레트로', '예술', '종교', '환경', '빌런',
+            '난민', '동물권', 'k-culture', '자치', '스포츠', '콘텐츠', '컨텐츠', '미디어', '음악', '영화',
+            '드라마', '시대정신', '도시균형', '패션', '전시', '공정', '출산율', '인플레이션', '물가', '경기',
+            '프라이버시', '개인정보', '법', '제도', '규정', '국가', '정부', '자본주의', '노동', '직업',
+            '취업', '직장', '커리어', '은퇴', '복지', '불평등', '양극화', '계층', '빈부', '차별', '혐오',
+            '인종', '다문화', '이민', '세계화', '민족', '젠더', '성평등', '페미', 'lgbtq', '퀴어', '성소수자',
+            '결혼', '이혼', '저출산', '고령화', '노인', '청년', '입시', '수능', '대학', '사교육',
+            '의료', '보건', '건강', '질병', '팬데믹', '코로나', '백신', '음주', '술', '음주문화',
+            '음식', '식문화', '요리', '다이어트', '스포츠', '운동', '헬스', '마케팅', '소비', '소비문화',
+            '브랜드', '명품', '패션', '뷰티', '한류', '케이팝', 'kpop', '방탄', '오징어게임', '기생충',
+            '마을', '지역', '광역', '자치', '균형', '소멸', '밈', '바이럴', '인플루언서',
+            'mbti', '사주', '점', '운세', '미신', '신비주의', '노출주의', '공공재', '개인정보보호',
+            '표현의자유', '방종', '언론의역할', '다수결', '개인주의', '관성', '백래시', '대세감',
+            '판교', '한교동', '어그로', '가스라이팅', '조종', '공동체의상실', '동방예의지국',
+            '온고이지신', '정치적올바름', '감시사회', '인구소멸', '불평등의이점', 'esg', '출산율저하',
+            'k드라마', '한국영화', '레트로퓨쳐', '덕업일치', '모를권리', '정보접근성'
+        ]
+    },
+    {
+        name: '관계/소통',
+        keywords: [
+            '관계', '소통', '커뮤니케이션', '공동체', '사랑', '우정', '친구', '가족', '연대', '대화',
+            '언어', '친밀감', '이질성', '배려', '상냥함', '다정', '고립', '외로움', '형제자매', '육아',
+            '꼰대', '어울림', '표현', '대면', '비대면', '손주', '조카', '군중', '귀여움', '오지랖',
+            '신뢰', '배신', '갈등', '화해', '용서', '공존', '협력', '이야기', '설득', '위로', '상처',
+            '연애', '데이트', '부부', '부모', '자녀', '부모님', '스승', '제자', '상사', '동료',
+            '팀워크', '리더', '멘토', '코칭', '말', '농담', '유머', '재치', '매력', '선후배',
+            '인간관계', '소외', '은둔', '모임', '집회', '광장', '아고라', '커뮤니티', '동호회',
+            '토론', '토론의특성', '트랠리', 'trally', '가족관계', '이별', '그리움', '향수',
+            '이웃', '마을공동체', '온라인커뮤니티', '댓글', '악플', '사이버불링', '팬심',
+            '팬덤', '덕질', '연예인', '아이돌', '스타', '팬미팅', '포용', '배척', '타자화',
+            '환대', '이방인', '낯선', '익숙함', '친숙함', '적응', '통합', '분리', '공감표현',
+            '감정표현', '감정공유', '경청', '설명', '이해시키기', '말하기', '듣기', '글쓰기',
+            '읽기', '독서', '책', '문자', '텍스트', '이모지', '카톡', '문자메시지', '편지',
+            '엽서', '일기', '블로그', '인스타', '트위터', '페이스북', '틱톡',
+            '남의이야기', '뒷담화', '가십', '소문', '소통부재', '단절', '분리',
+            '귀여움에의강요', '무차별의인화', '다중정체성', '부계정', '좋아함을보존'
+        ]
+    },
+    {
+        name: '심리/인식',
+        keywords: [
+            '심리', '인식', '인지', '행동', '의식', '기억', '정체성', '자아', '자존감', '감정',
+            '우울', '불안', '억울', '분노', '행복', '희망', '욕구', '동기', '동력', '편향', '착각',
+            '두려움', '정서', '직관', '뇌', '인정욕구', '취향', '공포', '수치심', '호기심', '번아웃',
+            '탐구심', '나르시즘', '죄책감', '질투', '욕심', '기분', '음모론', '최면', '사기',
+            '안락함', '편리', '장난기', '본능', '만족감', '아웃풋', '세련됨', '기대', '실망',
+            '즐거움', '즐김', '몰입', '과몰입', '중독', '집중', '성취', '열등감', '우월감',
+            '자기효능', '습관', '루틴', '스트레스', '힐링', '트라우마', '자기합리화', '억압',
+            '방어기제', '선입견', '고정관념', '확증편향', '인지부조화', '열광', '성장캐', '설정과다',
+            '사기캐', '지능', '뇌과학', '신경', '도파민', '공포심', '각성', '깨달음', '성찰',
+            '후회', '오글거림', '꿈dreams', '꿈goal', '드림', '비전', '나이듦', '노화', '노년',
+            '양가감정', '공감능력', '공감', '심리적저항', '자기계발', '자기관리', '자기이해',
+            '자기실현', '자기표현', '욕망', '충동', '쾌락', '보상', '동기부여', '의지', '끈기',
+            '포기', '도전', '실패', '반성', '뉘우침', '연결성발견', '창의력', '상상력',
+            '이해란', '순수한마음', '하고싶은걸', '극한상황', '능력치', '회복탄력성',
+            '엉망으로일하는법', '사기의기술', '공감능력에대하여', '오글거림은무엇인가',
+            '기억vs기록', '기억과기록', '희로애락', '본래마음', '스토리에빠지는이유',
+            '우리가열광하는', '왜열광하는가', '생명이길어짐', '우울증초기', '능력의양극화'
+        ]
+    },
+    {
+        name: '철학/가치관',
+        keywords: [
+            '철학', '윤리', '도덕', '가치', '삶', '존재', '자유', '책임', '진실', '거짓', '선악',
+            '정의', '영성', '본질', '숙명', '이성', '합리', '지성', '목적', '의미', '중립', '보편성',
+            '지속가능', '회의주의', '재미', '창의', '영감', '지성인', '용기', '믿음', '이해', '해석',
+            '관점', '패러다임', '세계관', '인생관', '신념', '원칙', '기준', '선택', '결정',
+            '역설', '모순', '아이러니', '딜레마', '숙명론', '자유의지', '결정론', '실존', '허무',
+            '죽음', '생명의의미', '불멸', '영원', '절대', '상대', '이상', '현실', '유토피아',
+            '이기주의', '이타주의', '공익', '사익', '집단주의', '도덕상대주의', '도덕보편주의',
+            '정직', '솔직', '위선', '이중성', '공정성', '공리주의', '의무론', '덕윤리',
+            '난이도', '어려운길', '쉬운길', '방어', '공격', '효율성', '효율화', '균형', '조화',
+            '하향제한', '우상향', '초심', '가늘고긴', '극과극', '고학력', '성공경향',
+            '아웃풋과삶의', '해석의새기준', '악마는디테일', '경험은확증편향', '방어가최고',
+            '기회의조건', '친구라는카테고리', '20대이후공부', '나이든이후', '축약의장단점',
+            '의미부여와합리화', '합리화는필요한', '책임감의부재', '인내심으로', '효율성효율화',
+            '온고이지신', '민주주의와자본주의', '두가지용기', '도전에드는용기', '변화의속도',
+            '가속화', '지속가능성조건', '연결성', '암묵', '기대하고실망', '세련됨을느끼는',
+            '좋아서할수있는', '해체와조합', '가치의기원', '가치제안', '선입견과직관',
+            '창의력이란', '지성인의특징', '장난기의전망', '영감의정의', '영감의중요성',
+            '이해란무엇인가', '재미란', '책임감', '삶의의미', '삶의태도트렌드',
+            '욕심과능력', '객관성과합리화', '매우말이', '익숙함과낯섦', '쉬운길vs어려운길',
+            '실패욕구', '백문이불여일견', '순수한마음증명', '항상양적발전', '보편적으로행복',
+            '한국인종특', '회피에끝', '생명이길어짐', '정신vs육체', '초능력', '재미',
+            '합리와비합리', '성인성장발달', '편가르기', '혼자보내는시간', '쉬는것의죄책감',
+            '기대는응원', '조언의소유권', '성숙함의인플레이션', 'win-win', '뇌를이식받은',
+            '오징어게임을보고', '믿음과불확실성', '모를권리', '즐김의폭력성', '실망시키기',
+            '기대의가치', '꿈이한단어로', '초능력'
+        ]
+    }
+];
+
+// 키워드 점수 기반 분류 (가장 많이 매칭되는 카테고리 반환, 미매칭 시 철학/가치관 기본값)
+function getTopicCategory(topic) {
+    const text = ((topic.topic || '') + ' ' + (topic.keywords || '')).toLowerCase();
+    let bestCat = '철학/가치관';
+    let bestScore = 0;
+    for (const cat of TOPIC_CATEGORIES) {
+        const score = cat.keywords.filter(kw => text.includes(kw)).length;
+        if (score > bestScore) {
+            bestScore = score;
+            bestCat = cat.name;
+        }
+    }
+    return bestCat;
 }
 
-// 주제 표시
-function displayTopics(author) {
+// 주제 로드 (DB 기반)
+function loadTopics() {
+    displayTopics();
+}
+
+// 주제 표시 (멀티 필터 적용)
+function displayTopics() {
     const topicContent = document.getElementById('topicContent');
     const isLoggedIn = currentUser !== null;
+    const { status, authors, categories } = topicFilters;
 
-    // 필터링
-    let filteredTopics = topics;
-    if (author !== 'all') {
-        filteredTopics = topics.filter(t => {
-            const primaryAuthor = (t.author || '').split(/[-,+]/)[0].trim();
-            return primaryAuthor === author || (t.author && t.author.includes(author));
-        });
-    }
-
-    // 정렬: 제안자 이름순(가나다), 미진행 먼저
-    filteredTopics.sort((a, b) => {
-        // 제안자 이름순 (첫 번째 제안자 기준)
-        const authorA = (a.author || '').split(/[-,+]/)[0].trim();
-        const authorB = (b.author || '').split(/[-,+]/)[0].trim();
-        const authorCompare = authorA.localeCompare(authorB, 'ko');
-        if (authorCompare !== 0) return authorCompare;
-
-        // 미진행(completed=false) 먼저
-        if (a.completed !== b.completed) {
-            return a.completed ? 1 : -1;
+    // 필터 적용
+    const filtered = topics.filter(t => {
+        if (status === 'pending' && t.completed) return false;
+        if (status === 'completed' && !t.completed) return false;
+        if (authors.length > 0) {
+            const primary = (t.author || '').split(/[-,+]/)[0].trim();
+            const matches = authors.some(a => primary === a || (t.author || '').includes(a));
+            if (!matches) return false;
         }
-        return 0;
+        if (categories.length > 0) {
+            if (!categories.includes(getTopicCategory(t))) return false;
+        }
+        return true;
     });
 
-    if (filteredTopics.length === 0) {
-        topicContent.innerHTML = author === 'all'
-            ? '<p>등록된 주제가 없습니다.</p>'
-            : `<p>${author}님의 제안 주제가 없습니다.</p>`;
+    // 결과 수 업데이트
+    const countEl = document.getElementById('topicFilterCount');
+    if (countEl) countEl.textContent = `${filtered.length}개`;
+
+    if (filtered.length === 0) {
+        topicContent.innerHTML = '<p class="no-topics">조건에 맞는 주제가 없습니다.</p>';
         return;
     }
 
-    // 제안자별 그룹핑
-    const grouped = {};
-    filteredTopics.forEach(topic => {
-        const primaryAuthor = (topic.author || '기타').split(/[-,+]/)[0].trim();
-        if (!grouped[primaryAuthor]) {
-            grouped[primaryAuthor] = { completed: [], pending: [] };
-        }
-        if (topic.completed) {
-            grouped[primaryAuthor].completed.push(topic);
-        } else {
-            grouped[primaryAuthor].pending.push(topic);
-        }
-    });
-
-    // 제안자 지정 순서 정렬 (다흰, 민구, 아름, 승종, 원혁, 동원, 그외)
-    const authorOrder = ['다흰', '민구', '아름', '승종', '원혁', '동원'];
-    const sortedAuthors = Object.keys(grouped).sort((a, b) => {
-        const indexA = authorOrder.indexOf(a);
-        const indexB = authorOrder.indexOf(b);
-        // 둘 다 지정 순서에 있으면 그 순서대로
-        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-        // 하나만 지정 순서에 있으면 그게 먼저
-        if (indexA !== -1) return -1;
-        if (indexB !== -1) return 1;
-        // 둘 다 없으면 가나다순
-        return a.localeCompare(b, 'ko');
-    });
-
-    let html = '';
-    for (const authorName of sortedAuthors) {
-        const topicGroups = grouped[authorName];
-        html += `<h2>${authorName}</h2>`;
-
-        // 미진행 주제 먼저
-        if (topicGroups.pending.length > 0) {
-            html += `<h3>제안 주제 (미진행)</h3><ul>`;
-            topicGroups.pending.forEach(topic => {
-                const itemClass = isLoggedIn ? 'topic-item clickable' : 'topic-item';
-                const dblClick = isLoggedIn ? `ondblclick="editTopic('${topic.id}')"` : '';
-                html += `<li class="${itemClass}" ${dblClick}>${topic.topic}${topic.keywords ? ` <span class="topic-keywords">(${topic.keywords})</span>` : ''}</li>`;
-            });
-            html += `</ul>`;
-        }
-
-        // 진행된 주제
-        if (topicGroups.completed.length > 0) {
-            html += `<h3>실제 토론 진행된 주제</h3><ul>`;
-            topicGroups.completed.forEach(topic => {
-                const dateStr = topic.date ? ` (${formatDate(topic.date)})` : '';
-                const itemClass = isLoggedIn ? 'topic-item clickable' : 'topic-item';
-                const dblClick = isLoggedIn ? `ondblclick="editTopic('${topic.id}')"` : '';
-                html += `<li class="${itemClass}" ${dblClick}>${topic.topic}${dateStr}</li>`;
-            });
-            html += `</ul>`;
-        }
-
-        html += `<hr>`;
-    }
-
-    topicContent.innerHTML = html;
+    topicContent.innerHTML = buildFlatList(filtered, isLoggedIn);
 }
 
-// 제안자별 필터
-function filterByAuthor(author) {
-    currentFilter = author;
+// 항상 flat list로 표시
+function buildFlatList(list, isLoggedIn) {
+    const { status } = topicFilters;
+    let html = '';
 
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('active');
+    if (status === 'completed') {
+        // 진행됨: 날짜 내림차순, 연도 구분
+        list.sort((a, b) => {
+            const da = a.date ? new Date(a.date) : new Date(0);
+            const db = b.date ? new Date(b.date) : new Date(0);
+            return db - da;
+        });
+        html += buildByYear(list, isLoggedIn);
+    } else if (status === 'pending') {
+        // 미진행만
+        html += `<ul>`;
+        list.forEach(t => { html += buildTopicItem(t, isLoggedIn, false); });
+        html += `</ul>`;
+    } else {
+        // 전체: 미진행 먼저, 진행됨은 날짜 내림차순
+        const pending = list.filter(t => !t.completed);
+        const completed = list.filter(t => t.completed).sort((a, b) => {
+            const da = a.date ? new Date(a.date) : new Date(0);
+            const db = b.date ? new Date(b.date) : new Date(0);
+            return db - da;
+        });
+
+        if (pending.length > 0) {
+            html += `<h3 class="topic-section-heading">제안 주제 (미진행) <span class="topic-section-count">${pending.length}</span></h3><ul>`;
+            pending.forEach(t => { html += buildTopicItem(t, isLoggedIn, false); });
+            html += `</ul>`;
+        }
+        if (completed.length > 0) {
+            html += `<h3 class="topic-section-heading">진행된 주제 <span class="topic-section-count">${completed.length}</span></h3>`;
+            html += buildByYear(completed, isLoggedIn);
+        }
+    }
+    return html;
+}
+
+// 연도별 구분 리스트
+function buildByYear(list, isLoggedIn) {
+    let html = '';
+    let currentYear = null;
+    list.forEach(t => {
+        const year = t.date ? new Date(t.date).getFullYear() : null;
+        if (year !== currentYear) {
+            if (currentYear !== null) html += '</ul>';
+            html += `<h4 class="topic-year-heading">${year || '날짜 미상'}</h4><ul>`;
+            currentYear = year;
+        }
+        html += buildTopicItem(t, isLoggedIn, true);
     });
-    event.target.classList.add('active');
+    if (currentYear !== null) html += '</ul>';
+    return html;
+}
 
-    displayTopics(author);
+// 개별 아이템 HTML
+function buildTopicItem(t, isLoggedIn, showDate) {
+    const catBadge = buildCategoryBadge(getTopicCategory(t));
+    const authorBadge = `<span class="topic-author-badge">${(t.author || '').split(/[-,+]/)[0].trim()}</span>`;
+    const dateStr = showDate && t.date ? ` <span class="topic-date">(${formatDate(t.date)})</span>` : '';
+    // 카테고리명은 배지로 이미 표시되므로 키워드에서 제외
+    const extraKw = (t.keywords || '').split(',').map(s => s.trim()).filter(s => s && !CATEGORY_NAMES.includes(s)).join(', ');
+    const keywords = !showDate && extraKw ? ` <span class="topic-keywords">(${extraKw})</span>` : '';
+    const itemClass = isLoggedIn ? 'topic-item clickable' : 'topic-item';
+    const dblClick = isLoggedIn ? `ondblclick="editTopic('${t.id}')"` : '';
+    return `<li class="${itemClass}" ${dblClick}>${catBadge}${t.topic}${keywords}${dateStr}${authorBadge}</li>`;
+}
+
+function buildCategoryBadge(category) {
+    const icons = { '기술/미래': '⚙️', '사회/문화': '🌍', '관계/소통': '💬', '심리/인식': '🧠', '철학/가치관': '💡' };
+    const icon = icons[category] || '';
+    return `<span class="topic-cat-badge cat-${category.replace('/', '-')}">${icon} ${category}</span>`;
+}
+
+// ── 필터 제어 함수 ────────────────────────────────────────────────────
+
+function setStatusFilter(value) {
+    topicFilters.status = value;
+    ['statusAll', 'statusPending', 'statusCompleted'].forEach(id => {
+        document.getElementById(id).classList.remove('active');
+    });
+    document.getElementById('status' + value.charAt(0).toUpperCase() + value.slice(1)).classList.add('active');
+    displayTopics();
+}
+
+function toggleAuthorFilter(author) {
+    const idx = topicFilters.authors.indexOf(author);
+    if (idx === -1) topicFilters.authors.push(author);
+    else topicFilters.authors.splice(idx, 1);
+    document.querySelectorAll('.author-pill').forEach(btn => {
+        btn.classList.toggle('active', topicFilters.authors.includes(btn.dataset.author));
+    });
+    displayTopics();
+}
+
+function toggleCategoryFilter(category) {
+    const idx = topicFilters.categories.indexOf(category);
+    if (idx === -1) topicFilters.categories.push(category);
+    else topicFilters.categories.splice(idx, 1);
+    document.querySelectorAll('.category-pill').forEach(btn => {
+        const cat = btn.dataset.category;
+        btn.classList.toggle('active', topicFilters.categories.includes(cat));
+    });
+    displayTopics();
+}
+
+function resetTopicFilters() {
+    topicFilters = { status: 'all', authors: [], categories: [] };
+    document.querySelectorAll('.status-pill, .author-pill, .category-pill').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('statusAll').classList.add('active');
+    displayTopics();
+}
+
+const CATEGORY_NAMES = ['기술/미래', '사회/문화', '관계/소통', '심리/인식', '철학/가치관'];
+
+// 카테고리 선택 토글
+function selectTopicCategory(cat) {
+    const current = document.getElementById('topicCategory').value;
+    const newVal = current === cat ? '' : cat;
+    document.getElementById('topicCategory').value = newVal;
+    document.querySelectorAll('.topic-cat-pick').forEach(b => {
+        b.classList.toggle('selected', b.dataset.cat === newVal);
+    });
+}
+
+function _initTopicCategoryUI() {
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    document.getElementById('topicCustomKwRow').classList.toggle('hidden', !isAdmin);
 }
 
 // 주제 폼 표시
@@ -581,10 +932,13 @@ function showTopicForm() {
     document.getElementById('topicEditId').value = '';
     document.getElementById('topicAuthor').value = '';
     document.getElementById('topicTitle').value = '';
+    document.getElementById('topicCategory').value = '';
     document.getElementById('topicKeywords').value = '';
     document.getElementById('topicDate').value = '';
     document.getElementById('topicCompleted').value = 'false';
     document.getElementById('topicDeleteBtn').style.display = 'none';
+    document.querySelectorAll('.topic-cat-pick').forEach(b => b.classList.remove('selected'));
+    _initTopicCategoryUI();
 }
 
 // 주제 수정 폼
@@ -597,10 +951,22 @@ function editTopic(topicId) {
     document.getElementById('topicEditId').value = topicId;
     document.getElementById('topicAuthor').value = topic.author || '';
     document.getElementById('topicTitle').value = topic.topic || '';
-    document.getElementById('topicKeywords').value = topic.keywords || '';
     document.getElementById('topicDate').value = parseToISODate(topic.date);
     document.getElementById('topicCompleted').value = topic.completed ? 'true' : 'false';
     document.getElementById('topicDeleteBtn').style.display = 'inline-block';
+
+    // 기존 키워드에서 카테고리 분리
+    const kw = topic.keywords || '';
+    const selectedCat = CATEGORY_NAMES.find(c => kw.includes(c)) || '';
+    document.getElementById('topicCategory').value = selectedCat;
+    document.querySelectorAll('.topic-cat-pick').forEach(b => {
+        b.classList.toggle('selected', b.dataset.cat === selectedCat);
+    });
+
+    _initTopicCategoryUI();
+    // 관리자는 카테고리 제외 나머지 키워드도 표시
+    const customKw = kw.split(',').map(s => s.trim()).filter(s => !CATEGORY_NAMES.includes(s)).join(', ');
+    document.getElementById('topicKeywords').value = customKw;
 }
 
 // 주제 저장
@@ -609,10 +975,15 @@ async function saveTopic(event) {
 
     const editId = document.getElementById('topicEditId').value;
     const dateValue = document.getElementById('topicDate').value;
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    const cat = document.getElementById('topicCategory').value;
+    const customKw = isAdmin ? document.getElementById('topicKeywords').value.trim() : '';
+    const keywordParts = [cat, customKw].filter(Boolean);
+
     const topic = {
         author: document.getElementById('topicAuthor').value,
         topic: document.getElementById('topicTitle').value,
-        keywords: document.getElementById('topicKeywords').value || null,
+        keywords: keywordParts.length > 0 ? keywordParts.join(', ') : null,
         date: dateValue && dateValue.trim() !== '' ? dateValue : null,
         completed: document.getElementById('topicCompleted').value === 'true'
     };
@@ -1402,6 +1773,7 @@ async function loadRequests() {
 function displayRequests() {
     const tbody = document.getElementById('requestsTableBody');
     const isAdmin = currentUser && currentUser.role === 'admin';
+    const isLoggedIn = currentUser !== null;
 
     tbody.innerHTML = '';
 
@@ -1412,6 +1784,7 @@ function displayRequests() {
 
     requestItems.forEach(item => {
         const tr = document.createElement('tr');
+        tr.id = `request-row-${item.id}`;
         tr.className = item.is_resolved ? 'request-row resolved' : 'request-row';
 
         const checkbox = isAdmin
@@ -1421,7 +1794,12 @@ function displayRequests() {
 
         const actionCell = isAdmin
             ? `<td class="req-action-cell">
+                <button class="edit-btn" onclick="editRequest('${item.id}')">수정</button>
                 <button class="delete-btn" onclick="deleteRequest('${item.id}')">삭제</button>
+               </td>`
+            : isLoggedIn
+            ? `<td class="req-action-cell">
+                <button class="edit-btn" onclick="editRequest('${item.id}')">수정</button>
                </td>`
             : '';
 
@@ -1496,4 +1874,97 @@ async function deleteRequest(itemId) {
         console.error('요청사항 삭제 오류:', error);
         alert('삭제 중 오류가 발생했습니다.');
     }
+}
+
+// 요청사항 인라인 수정
+function editRequest(itemId) {
+    const item = requestItems.find(r => r.id === itemId);
+    if (!item) return;
+
+    const tr = document.getElementById(`request-row-${itemId}`);
+    if (!tr) return;
+
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    const actionButtons = isAdmin
+        ? `<button class="save-btn" onclick="saveRequest('${itemId}')">저장</button>
+           <button class="cancel-btn" onclick="cancelEditRequest('${itemId}')">취소</button>
+           <button class="delete-btn" onclick="deleteRequest('${itemId}')">삭제</button>`
+        : `<button class="save-btn" onclick="saveRequest('${itemId}')">저장</button>
+           <button class="cancel-btn" onclick="cancelEditRequest('${itemId}')">취소</button>`;
+
+    tr.innerHTML = `
+        <td class="req-name-cell"><input type="text" class="req-edit-input" id="edit-name-${itemId}" value="${item.name.replace(/"/g, '&quot;')}"></td>
+        <td class="req-content-cell"><input type="text" class="req-edit-input" id="edit-content-${itemId}" value="${item.content.replace(/"/g, '&quot;')}"></td>
+        <td class="req-status-cell"><input type="checkbox" class="resolved-checkbox" ${item.is_resolved ? 'checked' : ''} disabled></td>
+        <td class="req-action-cell">${actionButtons}</td>
+    `;
+}
+
+// 요청사항 수정 저장
+async function saveRequest(itemId) {
+    const name = document.getElementById(`edit-name-${itemId}`).value.trim();
+    const content = document.getElementById(`edit-content-${itemId}`).value.trim();
+
+    if (!name || !content) {
+        alert('이름과 요청사항을 모두 입력해주세요.');
+        return;
+    }
+
+    try {
+        await updateRequestContentInDB(itemId, name, content);
+        const item = requestItems.find(r => r.id === itemId);
+        if (item) {
+            item.name = name;
+            item.content = content;
+        }
+        displayRequests();
+    } catch (error) {
+        console.error('요청사항 수정 오류:', error);
+        alert('수정 중 오류가 발생했습니다.');
+    }
+}
+
+// 요청사항 수정 취소
+function cancelEditRequest(itemId) {
+    displayRequests();
+}
+
+// 스티키 테이블 헤더 (CSS sticky가 overflow-x:auto 컨테이너 안에서 동작 안 하므로 JS로 처리)
+function setupStickyHeaders() {
+    const mainContent = document.querySelector('.main-content');
+    if (!mainContent) return;
+
+    const targets = [
+        { tableId: 'scheduleTable',    containerId: 'tableContainer' },
+        { tableId: 'attendanceTable',  containerId: 'attendanceTableContainer' },
+        { tableId: 'requestsTable',    containerId: 'requestsTableWrapper' }
+    ];
+
+    function update() {
+        const mainTop = mainContent.getBoundingClientRect().top;
+
+        targets.forEach(({ tableId, containerId }) => {
+            const table     = document.getElementById(tableId);
+            const container = document.getElementById(containerId);
+            if (!table || !container) return;
+
+            const thead = table.querySelector('thead');
+            if (!thead) return;
+
+            const tableRect = table.getBoundingClientRect();
+            const theadH    = thead.offsetHeight;
+
+            if (tableRect.top < mainTop && tableRect.bottom > mainTop + theadH) {
+                thead.style.transform = `translateY(${mainTop - tableRect.top}px)`;
+                thead.style.zIndex    = '10';
+                thead.style.position  = 'relative';
+            } else {
+                thead.style.transform = '';
+                thead.style.zIndex    = '';
+                thead.style.position  = '';
+            }
+        });
+    }
+
+    mainContent.addEventListener('scroll', update, { passive: true });
 }

@@ -370,6 +370,33 @@ body::before {
     padding: 6px 10px;
 }
 
+.file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.file-list-item {
+    font-size: 13px;
+    color: #374151;
+    background: #f0f4ff;
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.file-list-item a {
+    color: #1e40af;
+    text-decoration: none;
+    flex: 1;
+}
+
+.file-list-item a:hover {
+    text-decoration: underline;
+}
+
 .file-remove-btn {
     color: #ef4444;
     cursor: pointer;
@@ -381,11 +408,172 @@ body::before {
     text-decoration: underline;
 }
 
+/* 발제자 열 너비 고정 (한글 6글자) */
+.presenter-col {
+    width: 6em;
+    min-width: 6em;
+    max-width: 6em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 댓글 토글 버튼 */
+.comment-cell {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.comment-toggle-btn {
+    background: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+.comment-toggle-btn:hover {
+    background: #eff6ff;
+    color: #1e40af;
+    border-color: #bfdbfe;
+}
+
+/* 댓글 펼침 행 */
+.comment-collapse-row {
+    background: #f8fafc;
+}
+
+.comment-panel-cell {
+    padding: 0 !important;
+    border-top: none !important;
+}
+
+.comment-panel {
+    padding: 12px 24px 14px;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* 댓글 목록 */
+.comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.comment-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    padding: 6px 12px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: #1e40af;
+    min-width: 52px;
+    white-space: nowrap;
+}
+
+.comment-content {
+    flex: 1;
+    color: #374151;
+    word-break: break-word;
+}
+
+.comment-date {
+    font-size: 11px;
+    color: #9ca3af;
+    white-space: nowrap;
+}
+
+.comment-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #ef4444;
+    font-size: 12px;
+    padding: 0 2px;
+    line-height: 1;
+}
+
+.comment-delete-btn:hover {
+    opacity: 0.7;
+}
+
+.comment-empty,
+.comment-loading,
+.comment-error,
+.comment-login-notice {
+    font-size: 13px;
+    color: #9ca3af;
+    margin: 4px 0 8px;
+}
+
+/* 댓글 입력 폼 */
+.comment-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.comment-author-input {
+    width: 80px;
+    padding: 5px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #f9fafb;
+    color: #374151;
+}
+
+.comment-content-input {
+    flex: 1;
+    min-width: 140px;
+    padding: 5px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.comment-content-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.comment-submit-btn {
+    padding: 5px 14px;
+    background: #1e40af;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.comment-submit-btn:hover {
+    background: #1e3a8a;
+}
+
 .schedule-table th {
     background: linear-gradient(135deg, #1e40af 0%, #1e3a5f 100%);
     color: white;
     font-weight: 600;
     font-size: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .schedule-table th:first-child {
@@ -603,34 +791,105 @@ body::before {
     box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
 }
 
-/* 주제 목록 */
-.topic-filters {
-    display: flex;
-    gap: 12px;
+/* 주제 목록 필터 패널 */
+.topic-filter-panel {
+    background: #f8f9fb;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px 24px;
     margin-bottom: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
-.filter-btn {
-    padding: 10px 20px;
-    background: white;
-    border: 2px solid #e5e7eb;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-weight: 500;
-    font-size: 14px;
+.filter-group-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    min-width: 60px;
+    flex-shrink: 0;
 }
 
-.filter-btn:hover {
+.filter-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filter-pill {
+    padding: 6px 14px;
+    background: white;
+    border: 1.5px solid #d1d5db;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+    font-size: 13px;
+    color: #374151;
+}
+
+.filter-pill:hover {
     border-color: #1e40af;
     color: #1e40af;
 }
 
-.filter-btn.active {
-    background: linear-gradient(135deg, #1e40af 0%, #1e3a5f 100%);
+.filter-pill.active {
+    background: #1e40af;
     color: white;
-    border-color: transparent;
+    border-color: #1e40af;
+}
+
+/* 제안자 필터 - 활성화 색상 구분 */
+.author-pill.active {
+    background: #065f46;
+    border-color: #065f46;
+}
+
+/* 카테고리 필터 - 활성화 색상 구분 */
+.category-pill.active {
+    background: #7c3aed;
+    border-color: #7c3aed;
+}
+
+.filter-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 4px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.filter-reset-btn {
+    padding: 5px 12px;
+    background: transparent;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #6b7280;
+    transition: all 0.2s;
+}
+
+.filter-reset-btn:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.filter-count {
+    font-size: 13px;
+    color: #6b7280;
+    margin-left: auto;
+    font-weight: 600;
 }
 
 .topic-list {
@@ -999,6 +1258,123 @@ body::before {
     font-style: normal;
 }
 
+/* 폼 내 카테고리 선택 버튼 */
+.topic-cat-pick-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.topic-cat-pick {
+    padding: 7px 14px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 20px;
+    background: white;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    transition: all 0.2s;
+}
+
+.topic-cat-pick:hover {
+    border-color: #6d28d9;
+    color: #6d28d9;
+}
+
+.topic-cat-pick.selected {
+    background: #6d28d9;
+    border-color: #6d28d9;
+    color: white;
+}
+
+.admin-label {
+    display: inline-block;
+    font-size: 10px;
+    background: #fef3c7;
+    color: #92400e;
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-weight: 600;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+/* 카테고리 배지 */
+.topic-cat-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-right: 8px;
+    vertical-align: middle;
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.topic-cat-badge.cat-기술-미래  { background: #dbeafe; color: #1d4ed8; }
+.topic-cat-badge.cat-사회-문화  { background: #dcfce7; color: #15803d; }
+.topic-cat-badge.cat-관계-소통  { background: #fef9c3; color: #a16207; }
+.topic-cat-badge.cat-심리-인식  { background: #fce7f3; color: #be185d; }
+.topic-cat-badge.cat-철학-가치관 { background: #ede9fe; color: #6d28d9; }
+
+/* 진행됨 flat list - 날짜/제안자 표시 */
+.topic-date {
+    color: #6b7280;
+    font-size: 0.88em;
+    margin-left: 2px;
+}
+
+.topic-author-badge {
+    display: inline-block;
+    font-size: 11px;
+    background: #f3f4f6;
+    color: #6b7280;
+    border-radius: 8px;
+    padding: 1px 7px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.topic-section-heading {
+    font-size: 15px;
+    font-weight: 700;
+    color: #374151;
+    margin-top: 28px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.topic-section-count {
+    font-size: 12px;
+    background: #e5e7eb;
+    color: #6b7280;
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-weight: 600;
+}
+
+.topic-year-heading {
+    font-size: 15px;
+    font-weight: 600;
+    color: #6b7280;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    padding-left: 10px;
+    border-left: 3px solid #d1d5db;
+}
+
+.no-topics {
+    text-align: center;
+    color: #9ca3af;
+    padding: 40px 0;
+    font-size: 15px;
+}
+
 /* ============================================
    요청사항 테이블
    ============================================ */
@@ -1023,6 +1399,10 @@ body::before {
     text-align: left;
     font-weight: 600;
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .requests-table th:first-child { border-radius: 10px 0 0 0; }
@@ -1079,6 +1459,16 @@ body::before {
 .req-action-cell {
     text-align: center;
     vertical-align: middle;
+    white-space: nowrap;
+}
+
+.req-edit-input {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid #93c5fd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    box-sizing: border-box;
 }
 
 /* 체크박스 스타일 */
@@ -1126,11 +1516,16 @@ body::before {
     .form-col, .form-col.form-col-small {
         flex: 1 1 100%;
     }
-    .topic-filters {
-        flex-wrap: wrap;
+    .topic-filter-panel {
+        padding: 14px 16px;
     }
-    .filter-btn {
-        padding: 8px 12px;
+    .filter-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .filter-pill {
+        padding: 5px 10px;
         font-size: 12px;
     }
     .schedule-table {
@@ -1243,7 +1638,7 @@ body::before {
 
 /* 출석부 테이블 */
 .attendance-table-wrapper {
-    overflow: hidden;
+    overflow: clip;
     border-radius: 12px;
     border: 2px solid #e5e7eb;
 }
@@ -1272,7 +1667,10 @@ body::before {
     color: white;
     font-weight: 600;
     white-space: nowrap;
-    position: relative;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .attendance-table th.schedule-col {
