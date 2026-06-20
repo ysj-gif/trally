@@ -93,6 +93,9 @@
                     <div class="menu-item" onclick="showPage('gallery')">
                         🖼️ 갤러리
                     </div>
+                    <div class="menu-item" onclick="showPage('ladder')">
+                        🪜 사다리 게임
+                    </div>
                     <div class="menu-item" onclick="showPage('requests')">
                         📨 요청사항
                     </div>
@@ -106,62 +109,68 @@
                     <div id="schedulePage" class="content-page">
                         <h2 class="page-title">토론 일정</h2>
 
-                        <!-- 일정 추가 폼 -->
-                        <div id="scheduleFormContainer" class="hidden">
-                            <form class="schedule-form" onsubmit="saveSchedule(event)">
-                                <input type="hidden" id="scheduleEditId">
-                                <div class="form-row">
-                                    <div class="form-col form-col-small">
-                                        <label>회차</label>
-                                        <input type="number" id="scheduleNumber" placeholder="205" required>
-                                    </div>
-                                    <div class="form-col">
-                                        <label>발제자</label>
-                                        <input type="text" id="schedulePresenter" placeholder="발제자">
-                                    </div>
-                                    <div class="form-col">
-                                        <label>사회자</label>
-                                        <input type="text" id="scheduleModerator" placeholder="사회자">
-                                    </div>
-                                    <div class="form-col">
-                                        <label>날짜</label>
-                                        <input type="date" id="scheduleDate">
-                                    </div>
+                        <!-- 일정 추가/수정 모달 -->
+                        <div id="scheduleModal" class="schedule-modal hidden">
+                            <div class="schedule-modal-content">
+                                <div class="schedule-modal-header">
+                                    <h3 id="scheduleModalTitle">일정 추가</h3>
+                                    <button class="schedule-modal-close" type="button" onclick="cancelScheduleEdit()">×</button>
                                 </div>
-                                <div class="form-row">
-                                    <div class="form-col">
-                                        <label>주제</label>
-                                        <input type="text" id="scheduleTopic" placeholder="토론 주제">
-                                    </div>
-                                    <div class="form-col">
-                                        <label>장소</label>
-                                        <input type="text" id="scheduleLocation" placeholder="장소">
-                                    </div>
-                                    <div class="form-col">
-                                        <label>게스트</label>
-                                        <input type="text" id="scheduleGuest" placeholder="게스트">
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-col form-col-full">
-                                        <label>비고</label>
-                                        <textarea id="scheduleRemarks" placeholder="비고" rows="2"></textarea>
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-col form-col-full">
-                                        <label>요약 파일 (PDF 등)</label>
-                                        <div class="file-input-wrapper">
-                                            <input type="file" id="scheduleFile" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt" multiple>
-                                            <div id="scheduleFileList" class="file-list"></div>
+                                <form class="schedule-form" onsubmit="saveSchedule(event)">
+                                    <input type="hidden" id="scheduleEditId">
+                                    <div class="form-row">
+                                        <div class="form-col form-col-small">
+                                            <label>회차</label>
+                                            <input type="number" id="scheduleNumber" placeholder="205" required>
+                                        </div>
+                                        <div class="form-col">
+                                            <label>발제자</label>
+                                            <input type="text" id="schedulePresenter" placeholder="발제자">
+                                        </div>
+                                        <div class="form-col">
+                                            <label>사회자</label>
+                                            <input type="text" id="scheduleModerator" placeholder="사회자">
+                                        </div>
+                                        <div class="form-col">
+                                            <label>날짜</label>
+                                            <input type="date" id="scheduleDate">
                                         </div>
                                     </div>
-                                </div>
-                                <div class="form-actions">
-                                    <button type="submit" class="save-btn">저장</button>
-                                    <button type="button" class="cancel-btn" onclick="cancelScheduleEdit()">취소</button>
-                                </div>
-                            </form>
+                                    <div class="form-row">
+                                        <div class="form-col">
+                                            <label>주제</label>
+                                            <input type="text" id="scheduleTopic" placeholder="토론 주제">
+                                        </div>
+                                        <div class="form-col">
+                                            <label>장소</label>
+                                            <input type="text" id="scheduleLocation" placeholder="장소">
+                                        </div>
+                                        <div class="form-col">
+                                            <label>게스트</label>
+                                            <input type="text" id="scheduleGuest" placeholder="게스트">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-col form-col-full">
+                                            <label>비고</label>
+                                            <textarea id="scheduleRemarks" placeholder="비고" rows="2"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-col form-col-full">
+                                            <label>요약 파일 (PDF 등)</label>
+                                            <div class="file-input-wrapper">
+                                                <input type="file" id="scheduleFile" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt" multiple>
+                                                <div id="scheduleFileList" class="file-list"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="save-btn">저장</button>
+                                        <button type="button" class="cancel-btn" onclick="cancelScheduleEdit()">취소</button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
 
                         <!-- 일정 버튼들 -->
@@ -438,6 +447,46 @@
                                     <button class="delete-btn" onclick="deleteGalleryFromModal()">삭제</button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- 사다리 게임 페이지 -->
+                    <div id="ladderPage" class="content-page hidden">
+                        <h2 class="page-title">사다리 게임</h2>
+
+                        <!-- 입력 화면 -->
+                        <div id="ladderSetup">
+                            <div class="ladder-setup-grid">
+                                <div class="ladder-setup-col">
+                                    <div class="ladder-label">참가자</div>
+                                    <div class="ladder-chips" id="ladderPlayerChips"></div>
+                                </div>
+                                <div class="ladder-arrow">→</div>
+                                <div class="ladder-setup-col">
+                                    <div class="ladder-label">결과</div>
+                                    <div class="ladder-chips" id="ladderResultChips"></div>
+                                </div>
+                            </div>
+                            <p class="ladder-hint" id="ladderInputHint">참가자 수와 결과 수가 같아야 합니다.</p>
+                            <div class="ladder-setup-actions">
+                                <button class="add-btn" onclick="startLadder()">사다리 만들기!</button>
+                            </div>
+                        </div>
+
+                        <!-- 게임 화면 -->
+                        <div id="ladderGame" class="hidden">
+                            <div class="ladder-board">
+                                <div class="ladder-names" id="ladderTopNames"></div>
+                                <div class="ladder-canvas-wrap">
+                                    <canvas id="ladderCanvas"></canvas>
+                                </div>
+                                <div class="ladder-names" id="ladderBottomNames"></div>
+                            </div>
+                            <div class="ladder-game-actions">
+                                <button class="cancel-btn" onclick="resetLadder()">↩ 다시 입력</button>
+                                <button class="add-btn" onclick="revealAllLadder()">모두 공개</button>
+                            </div>
+                            <p class="ladder-hint" id="ladderHint" style="text-align:center; margin-top:12px;">이름을 클릭하면 결과를 확인할 수 있습니다.</p>
                         </div>
                     </div>
 

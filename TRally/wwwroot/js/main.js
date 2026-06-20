@@ -3,6 +3,7 @@ let scheduleCurrentFiles = [];
 
 // 이미 로드된 댓글 패널 추적
 let loadedCommentPanels = new Set();
+let loadedTopicCommentPanels = new Set();
 
 // 일정 schedule의 파일 목록 파싱 (기존 단일 파일 형식과 호환)
 function parseScheduleFiles(schedule) {
@@ -151,12 +152,13 @@ function showPage(pageName) {
     });
 
     const pages = {
-        'schedule': [document.getElementById('schedulePage'), 0],
-        'topics': [document.getElementById('topicsPage'), 1],
+        'schedule':   [document.getElementById('schedulePage'),   0],
+        'topics':     [document.getElementById('topicsPage'),     1],
         'attendance': [document.getElementById('attendancePage'), 2],
-        'gallery': [document.getElementById('galleryPage'), 3],
-        'requests': [document.getElementById('requestsPage'), 4],
-        'admin': [document.getElementById('adminPage'), 5]
+        'gallery':    [document.getElementById('galleryPage'),    3],
+        'ladder':     [document.getElementById('ladderPage'),     4],
+        'requests':   [document.getElementById('requestsPage'),   5],
+        'admin':      [document.getElementById('adminPage'),      6]
     };
 
     if (pages[pageName]) {
@@ -178,6 +180,11 @@ function showPage(pageName) {
         // 출석부 페이지면 출석부 로드
         if (pageName === 'attendance') {
             loadAttendancePage();
+        }
+
+        // 사다리 페이지면 칩 UI 초기화
+        if (pageName === 'ladder' && !ladderData) {
+            renderLadderSetup();
         }
 
         // 갤러리 페이지면 갤러리 로드
@@ -291,8 +298,7 @@ function loadSchedules() {
 
 // 일정 폼 표시
 function showScheduleForm() {
-    document.getElementById('scheduleFormContainer').classList.remove('hidden');
-    document.getElementById('scheduleButtons').classList.add('hidden');
+    document.getElementById('scheduleModalTitle').textContent = '일정 추가';
     document.getElementById('scheduleEditId').value = '';
     document.getElementById('scheduleNumber').value = '';
     document.getElementById('schedulePresenter').value = '';
@@ -305,6 +311,7 @@ function showScheduleForm() {
     scheduleCurrentFiles = [];
     renderScheduleFileList();
     document.getElementById('scheduleFile').value = '';
+    document.getElementById('scheduleModal').classList.remove('hidden');
 }
 
 // 날짜를 ISO 형식(YYYY-MM-DD)으로 변환
@@ -344,8 +351,7 @@ function editSchedule(scheduleId) {
     const schedule = schedules.find(s => s.id === scheduleId);
     if (!schedule) return;
 
-    document.getElementById('scheduleFormContainer').classList.remove('hidden');
-    document.getElementById('scheduleButtons').classList.add('hidden');
+    document.getElementById('scheduleModalTitle').textContent = '일정 수정';
     document.getElementById('scheduleEditId').value = scheduleId;
     document.getElementById('scheduleNumber').value = schedule.number || '';
     document.getElementById('schedulePresenter').value = schedule.presenter || '';
@@ -358,6 +364,7 @@ function editSchedule(scheduleId) {
     scheduleCurrentFiles = parseScheduleFiles(schedule);
     renderScheduleFileList();
     document.getElementById('scheduleFile').value = '';
+    document.getElementById('scheduleModal').classList.remove('hidden');
 }
 
 // 일정 저장 (추가/수정)
@@ -433,8 +440,7 @@ async function deleteSchedule(scheduleId) {
 
 // 일정 편집 취소
 function cancelScheduleEdit() {
-    document.getElementById('scheduleFormContainer').classList.add('hidden');
-    document.getElementById('scheduleButtons').classList.remove('hidden');
+    document.getElementById('scheduleModal').classList.add('hidden');
 }
 
 // ── 댓글 기능 ─────────────────────────────────────────────────────────
@@ -497,14 +503,62 @@ function renderScheduleComments(scheduleId, comments) {
         commentList.innerHTML = '<p class="comment-empty">아직 댓글이 없습니다.</p>';
         return;
     }
-    commentList.innerHTML = comments.map(c => `
+    commentList.innerHTML = comments.map(c => {
+        const isAuthor = currentUser && currentUser.name === c.author;
+        const canEdit = isAuthor;
+        const canDelete = isAdmin || isAuthor;
+        const escaped = c.content.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return `
         <div class="comment-item" id="comment_${c.id}">
             <span class="comment-author">${c.author}</span>
-            <span class="comment-content">${c.content}</span>
+            <span class="comment-content" id="commentText_${c.id}">${c.content}</span>
             <span class="comment-date">${formatCommentDate(c.created_at)}</span>
-            ${isAdmin ? `<button class="comment-delete-btn" onclick="deleteScheduleComment('${c.id}', '${scheduleId}')">✕</button>` : ''}
-        </div>
-    `).join('');
+            <span class="comment-actions">
+                ${canEdit ? `<button class="comment-edit-btn" onclick="startEditScheduleComment('${c.id}', '${scheduleId}', '${escaped}')">✎</button>` : ''}
+                ${canDelete ? `<button class="comment-delete-btn" onclick="deleteScheduleComment('${c.id}', '${scheduleId}')">✕</button>` : ''}
+            </span>
+        </div>`;
+    }).join('');
+}
+
+function startEditScheduleComment(commentId, scheduleId, currentContent) {
+    const textSpan = document.getElementById(`commentText_${commentId}`);
+    const actions = textSpan ? textSpan.parentElement.querySelector('.comment-actions') : null;
+    if (!textSpan || !actions) return;
+    textSpan.innerHTML = `<input type="text" class="comment-edit-input" id="commentEditInput_${commentId}" value="${currentContent.replace(/"/g, '&quot;')}">`;
+    actions.innerHTML = `
+        <button class="comment-save-btn" onclick="saveScheduleCommentEdit('${commentId}', '${scheduleId}')">저장</button>
+        <button class="comment-cancel-btn" onclick="cancelCommentEdit('${scheduleId}', null)">취소</button>`;
+    const input = document.getElementById(`commentEditInput_${commentId}`);
+    if (input) { input.focus(); input.select(); }
+}
+
+async function saveScheduleCommentEdit(commentId, scheduleId) {
+    const input = document.getElementById(`commentEditInput_${commentId}`);
+    if (!input) return;
+    const newContent = input.value.trim();
+    if (!newContent) return;
+    try {
+        await updateScheduleCommentInDB(commentId, newContent);
+        loadedCommentPanels.delete(scheduleId);
+        await loadScheduleComments(scheduleId);
+        loadedCommentPanels.add(scheduleId);
+    } catch (e) {
+        alert('댓글 수정 중 오류가 발생했습니다.');
+    }
+}
+
+async function cancelCommentEdit(scheduleId, topicId) {
+    if (scheduleId) {
+        loadedCommentPanels.delete(scheduleId);
+        await loadScheduleComments(scheduleId);
+        loadedCommentPanels.add(scheduleId);
+    }
+    if (topicId) {
+        loadedTopicCommentPanels.delete(topicId);
+        await loadTopicComments(topicId);
+        loadedTopicCommentPanels.add(topicId);
+    }
 }
 
 // 날짜 포맷 (댓글용)
@@ -541,6 +595,136 @@ async function deleteScheduleComment(commentId, scheduleId) {
         loadedCommentPanels.delete(scheduleId);
         await loadScheduleComments(scheduleId);
         loadedCommentPanels.add(scheduleId);
+    } catch (e) {
+        alert('댓글 삭제 중 오류가 발생했습니다.');
+    }
+}
+
+// ── 주제 댓글 기능 ────────────────────────────────────────────────────
+
+async function loadAllTopicCommentCounts() {
+    try {
+        const counts = await loadAllTopicCommentCountsFromDB();
+        topics.forEach(t => {
+            const el = document.getElementById(`topicCommentCount_${t.id}`);
+            if (el) el.textContent = counts[t.id] || 0;
+        });
+    } catch (e) {
+        topics.forEach(t => {
+            const el = document.getElementById(`topicCommentCount_${t.id}`);
+            if (el) el.textContent = 0;
+        });
+    }
+}
+
+async function toggleTopicComments(topicId, event) {
+    event.stopPropagation();
+    const panel = document.getElementById(`topicCommentPanel_${topicId}`);
+    if (!panel) return;
+    const isHidden = panel.classList.contains('hidden');
+    if (isHidden) {
+        panel.classList.remove('hidden');
+        if (!loadedTopicCommentPanels.has(topicId)) {
+            await loadTopicComments(topicId);
+            loadedTopicCommentPanels.add(topicId);
+        }
+    } else {
+        panel.classList.add('hidden');
+    }
+}
+
+async function loadTopicComments(topicId) {
+    const commentList = document.getElementById(`topicCommentList_${topicId}`);
+    if (!commentList) return;
+    commentList.innerHTML = '<p class="comment-loading">불러오는 중...</p>';
+    try {
+        const comments = await loadTopicCommentsFromDB(topicId);
+        renderTopicComments(topicId, comments);
+        const countEl = document.getElementById(`topicCommentCount_${topicId}`);
+        if (countEl) countEl.textContent = comments.length;
+    } catch (e) {
+        commentList.innerHTML = '<p class="comment-error">댓글을 불러오지 못했습니다.</p>';
+    }
+}
+
+function renderTopicComments(topicId, comments) {
+    const commentList = document.getElementById(`topicCommentList_${topicId}`);
+    if (!commentList) return;
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    if (comments.length === 0) {
+        commentList.innerHTML = '<p class="comment-empty">아직 댓글이 없습니다.</p>';
+        return;
+    }
+    commentList.innerHTML = comments.map(c => {
+        const isAuthor = currentUser && currentUser.name === c.author;
+        const canEdit = isAuthor;
+        const canDelete = isAdmin || isAuthor;
+        const escaped = c.content.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return `
+        <div class="comment-item" id="topicComment_${c.id}">
+            <span class="comment-author">${c.author}</span>
+            <span class="comment-content" id="topicCommentText_${c.id}">${c.content}</span>
+            <span class="comment-date">${formatCommentDate(c.created_at)}</span>
+            <span class="comment-actions">
+                ${canEdit ? `<button class="comment-edit-btn" onclick="startEditTopicComment('${c.id}', '${topicId}', '${escaped}')">✎</button>` : ''}
+                ${canDelete ? `<button class="comment-delete-btn" onclick="deleteTopicComment('${c.id}', '${topicId}')">✕</button>` : ''}
+            </span>
+        </div>`;
+    }).join('');
+}
+
+function startEditTopicComment(commentId, topicId, currentContent) {
+    const textSpan = document.getElementById(`topicCommentText_${commentId}`);
+    const actions = textSpan ? textSpan.parentElement.querySelector('.comment-actions') : null;
+    if (!textSpan || !actions) return;
+    textSpan.innerHTML = `<input type="text" class="comment-edit-input" id="topicCommentEditInput_${commentId}" value="${currentContent.replace(/"/g, '&quot;')}">`;
+    actions.innerHTML = `
+        <button class="comment-save-btn" onclick="saveTopicCommentEdit('${commentId}', '${topicId}')">저장</button>
+        <button class="comment-cancel-btn" onclick="cancelCommentEdit(null, '${topicId}')">취소</button>`;
+    const input = document.getElementById(`topicCommentEditInput_${commentId}`);
+    if (input) { input.focus(); input.select(); }
+}
+
+async function saveTopicCommentEdit(commentId, topicId) {
+    const input = document.getElementById(`topicCommentEditInput_${commentId}`);
+    if (!input) return;
+    const newContent = input.value.trim();
+    if (!newContent) return;
+    try {
+        await updateTopicCommentInDB(commentId, newContent);
+        loadedTopicCommentPanels.delete(topicId);
+        await loadTopicComments(topicId);
+        loadedTopicCommentPanels.add(topicId);
+    } catch (e) {
+        alert('댓글 수정 중 오류가 발생했습니다.');
+    }
+}
+
+async function submitTopicComment(event, topicId) {
+    event.preventDefault();
+    const authorInput = document.getElementById(`topicCommentAuthor_${topicId}`);
+    const contentInput = document.getElementById(`topicCommentContent_${topicId}`);
+    const author = authorInput ? authorInput.value.trim() : '';
+    const content = contentInput ? contentInput.value.trim() : '';
+    if (!author || !content) return;
+    try {
+        await addTopicCommentToDB(topicId, author, content);
+        if (contentInput) contentInput.value = '';
+        loadedTopicCommentPanels.delete(topicId);
+        await loadTopicComments(topicId);
+        loadedTopicCommentPanels.add(topicId);
+    } catch (e) {
+        alert('댓글 등록 중 오류가 발생했습니다.');
+    }
+}
+
+async function deleteTopicComment(commentId, topicId) {
+    if (!confirm('이 댓글을 삭제하시겠습니까?')) return;
+    try {
+        await deleteTopicCommentFromDB(commentId);
+        loadedTopicCommentPanels.delete(topicId);
+        await loadTopicComments(topicId);
+        loadedTopicCommentPanels.add(topicId);
     } catch (e) {
         alert('댓글 삭제 중 오류가 발생했습니다.');
     }
@@ -791,6 +975,8 @@ function displayTopics() {
     }
 
     topicContent.innerHTML = buildFlatList(filtered, isLoggedIn);
+    loadedTopicCommentPanels.clear();
+    loadAllTopicCommentCounts();
 }
 
 // 항상 flat list로 표시
@@ -860,7 +1046,25 @@ function buildTopicItem(t, isLoggedIn, showDate) {
     const keywords = !showDate && extraKw ? ` <span class="topic-keywords">(${extraKw})</span>` : '';
     const itemClass = isLoggedIn ? 'topic-item clickable' : 'topic-item';
     const dblClick = isLoggedIn ? `ondblclick="editTopic('${t.id}')"` : '';
-    return `<li class="${itemClass}" ${dblClick}>${catBadge}${t.topic}${keywords}${dateStr}${authorBadge}</li>`;
+    const formHtml = isLoggedIn
+        ? `<form class="comment-form" onsubmit="submitTopicComment(event, '${t.id}')">
+               <input type="text" class="comment-author-input" id="topicCommentAuthor_${t.id}"
+                   placeholder="작성자" value="${currentUser ? (currentUser.name || '') : ''}" readonly>
+               <input type="text" class="comment-content-input" id="topicCommentContent_${t.id}"
+                   placeholder="댓글을 입력하세요" required>
+               <button type="submit" class="comment-submit-btn">등록</button>
+           </form>`
+        : `<p class="comment-login-notice">댓글을 달려면 로그인하세요.</p>`;
+    return `<li class="${itemClass}" ${dblClick}>
+        <div class="topic-item-main">
+            ${catBadge}${t.topic}${keywords}${dateStr}${authorBadge}
+            <button class="topic-comment-toggle-btn" onclick="toggleTopicComments('${t.id}', event)">💬 <span id="topicCommentCount_${t.id}">-</span></button>
+        </div>
+        <div class="topic-comment-panel hidden" id="topicCommentPanel_${t.id}">
+            <div class="comment-list" id="topicCommentList_${t.id}"></div>
+            ${formHtml}
+        </div>
+    </li>`;
 }
 
 function buildCategoryBadge(category) {
@@ -1757,6 +1961,10 @@ document.addEventListener('click', (e) => {
     if (e.target === imageModal) {
         closeImageModal();
     }
+    const scheduleModal = document.getElementById('scheduleModal');
+    if (e.target === scheduleModal) {
+        cancelScheduleEdit();
+    }
 });
 
 // ============================================
@@ -1935,15 +2143,15 @@ function setupStickyHeaders() {
     if (!mainContent) return;
 
     const targets = [
-        { tableId: 'scheduleTable',    containerId: 'tableContainer' },
-        { tableId: 'attendanceTable',  containerId: 'attendanceTableContainer' },
-        { tableId: 'requestsTable',    containerId: 'requestsTableWrapper' }
+        { tableId: 'scheduleTable',    containerId: 'tableContainer',           scrollbarId: 'scrollTop' },
+        { tableId: 'attendanceTable',  containerId: 'attendanceTableContainer', scrollbarId: null },
+        { tableId: 'requestsTable',    containerId: 'requestsTableWrapper',     scrollbarId: null }
     ];
 
     function update() {
         const mainTop = mainContent.getBoundingClientRect().top;
 
-        targets.forEach(({ tableId, containerId }) => {
+        targets.forEach(({ tableId, containerId, scrollbarId }) => {
             const table     = document.getElementById(tableId);
             const container = document.getElementById(containerId);
             if (!table || !container) return;
@@ -1951,11 +2159,17 @@ function setupStickyHeaders() {
             const thead = table.querySelector('thead');
             if (!thead) return;
 
+            // 스크롤바가 있으면 그 바로 아래에 thead를 고정
+            const scrollbarEl = scrollbarId ? document.getElementById(scrollbarId) : null;
+            const stickyTop = scrollbarEl
+                ? scrollbarEl.getBoundingClientRect().bottom + 8
+                : mainTop;
+
             const tableRect = table.getBoundingClientRect();
             const theadH    = thead.offsetHeight;
 
-            if (tableRect.top < mainTop && tableRect.bottom > mainTop + theadH) {
-                thead.style.transform = `translateY(${mainTop - tableRect.top}px)`;
+            if (tableRect.top < stickyTop && tableRect.bottom > stickyTop + theadH) {
+                thead.style.transform = `translateY(${stickyTop - tableRect.top}px)`;
                 thead.style.zIndex    = '10';
                 thead.style.position  = 'relative';
             } else {
@@ -1967,4 +2181,358 @@ function setupStickyHeaders() {
     }
 
     mainContent.addEventListener('scroll', update, { passive: true });
+}
+
+// ── 사다리 게임 ────────────────────────────────────────────────────────
+
+let ladderData = null;
+const ladderSetupData = {
+    players: ['민구', '승종', '아름', '동원', '원혁'],
+    results: ['사회자', '꽝', '꽝', '꽝', '꽝']
+};
+
+// ── 칩 UI ─────────────────────────────────────────────────────────────
+
+function renderLadderSetup() {
+    renderChips('ladderPlayerChips', ladderSetupData.players, 'player');
+    renderChips('ladderResultChips', ladderSetupData.results, 'result');
+}
+
+function renderChips(containerId, items, type) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML =
+        items.map((item, i) =>
+            `<span class="setup-chip">
+                <span class="chip-label">${item}</span>
+                <button class="chip-remove-btn" onclick="removeChip('${type}',${i})">✕</button>
+            </span>`
+        ).join('') +
+        `<button class="chip-add-btn" id="${type}AddBtn" onclick="showChipInput('${type}')">+ 추가</button>
+         <span class="chip-input-wrap hidden" id="${type}InputWrap">
+             <input type="text" class="chip-input" id="${type}Input"
+                 placeholder="입력 후 Enter"
+                 onkeydown="chipInputKeydown(event,'${type}')">
+             <button class="chip-confirm-btn" onclick="confirmChipInput('${type}')">확인</button>
+             <button class="chip-cancel-btn" onclick="renderLadderSetup()">✕</button>
+         </span>`;
+}
+
+function removeChip(type, index) {
+    if (type === 'player') {
+        ladderSetupData.players.splice(index, 1);
+        // 꽝이 있으면 꽝 하나 제거, 없으면 마지막 결과 제거
+        const kwangIdx = ladderSetupData.results.lastIndexOf('꽝');
+        if (kwangIdx !== -1) ladderSetupData.results.splice(kwangIdx, 1);
+        else if (ladderSetupData.results.length > 0) ladderSetupData.results.pop();
+    } else {
+        ladderSetupData.results.splice(index, 1);
+    }
+    renderLadderSetup();
+}
+
+function showChipInput(type) {
+    document.getElementById(`${type}AddBtn`).classList.add('hidden');
+    document.getElementById(`${type}InputWrap`).classList.remove('hidden');
+    document.getElementById(`${type}Input`).focus();
+}
+
+function chipInputKeydown(event, type) {
+    if (event.key === 'Enter') { event.preventDefault(); confirmChipInput(type); }
+    else if (event.key === 'Escape') { renderLadderSetup(); }
+}
+
+function confirmChipInput(type) {
+    const val = (document.getElementById(`${type}Input`).value || '').trim();
+    if (val) {
+        if (type === 'player') {
+            ladderSetupData.players.push(val);
+            ladderSetupData.results.push('꽝'); // 참가자 추가 시 꽝 자동 추가
+        } else {
+            ladderSetupData.results.push(val);
+        }
+    }
+    renderLadderSetup();
+}
+
+// ── 게임 시작 ──────────────────────────────────────────────────────────
+
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function startLadder() {
+    const players = [...ladderSetupData.players];
+    const results = shuffleArray([...ladderSetupData.results]); // 사회자 위치 랜덤화
+
+    if (players.length < 2) {
+        alert('참가자를 2명 이상 입력하세요.');
+        return;
+    }
+    if (players.length !== results.length) {
+        alert(`참가자 수(${players.length})와 결과 수(${results.length})가 다릅니다.`);
+        return;
+    }
+
+    const n = players.length;
+    const rows = Math.max(12, n * 4);
+    const rungs = generateLadderRungs(n, rows);
+    const mapping = computeLadderMapping(n, rows, rungs);
+
+    ladderData = {
+        players, results, rungs, rows, n, mapping,
+        revealed: new Array(n).fill(false),
+        animating: false
+    };
+
+    document.getElementById('ladderSetup').classList.add('hidden');
+    document.getElementById('ladderGame').classList.remove('hidden');
+
+    renderLadderNames();
+    requestAnimationFrame(() => {
+        setupLadderCanvas();
+        animateLadderDraw();
+    });
+}
+
+function generateLadderRungs(n, rows) {
+    const rungs = [];
+    for (let r = 0; r < rows; r++) {
+        rungs[r] = new Array(n - 1).fill(false);
+        for (let i = 0; i < n - 1; i++) {
+            if (!rungs[r][i - 1]) {
+                rungs[r][i] = Math.random() < 0.42;
+            }
+        }
+    }
+    return rungs;
+}
+
+function computeLadderMapping(n, rows, rungs) {
+    return Array.from({ length: n }, (_, start) => {
+        let col = start;
+        for (let r = 0; r < rows; r++) {
+            if (col < n - 1 && rungs[r][col])       col++;
+            else if (col > 0 && rungs[r][col - 1])  col--;
+        }
+        return col;
+    });
+}
+
+function setupLadderCanvas() {
+    const { n, rows } = ladderData;
+    const canvas = document.getElementById('ladderCanvas');
+    const wrap = canvas.parentElement;
+    const availW = wrap.clientWidth || 600;
+    const colW = Math.max(70, Math.min(130, Math.floor((availW - 60) / (n - 1))));
+    const rowH = 28;
+    const padX = 30, padY = 16;
+
+    canvas.width  = colW * (n - 1) + padX * 2;
+    canvas.height = rowH * rows    + padY * 2;
+
+    ladderData.cv = { colW, rowH, padX, padY };
+}
+
+function colX(col) { const { colW, padX } = ladderData.cv; return padX + col * colW; }
+function rowY(row) { const { rowH, padY } = ladderData.cv; return padY + row * rowH; }
+
+function drawLadderFull(ctx, highlightIdx, highlightProgress) {
+    const { n, rows, rungs, cv } = ladderData;
+    const canvas = ctx.canvas;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // vertical lines
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < n; i++) {
+        ctx.beginPath();
+        ctx.moveTo(colX(i), rowY(0));
+        ctx.lineTo(colX(i), rowY(rows));
+        ctx.stroke();
+    }
+
+    // horizontal rungs
+    for (let r = 0; r < rows; r++) {
+        for (let i = 0; i < n - 1; i++) {
+            if (rungs[r][i]) {
+                ctx.beginPath();
+                ctx.moveTo(colX(i),     rowY(r) + cv.rowH / 2);
+                ctx.lineTo(colX(i + 1), rowY(r) + cv.rowH / 2);
+                ctx.stroke();
+            }
+        }
+    }
+
+    // highlighted path
+    if (highlightIdx !== null) {
+        const pts = buildPathPoints(highlightIdx);
+        const total = pts.length;
+        const drawTo = highlightProgress >= 1 ? total : Math.ceil(total * highlightProgress);
+
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let p = 1; p < drawTo; p++) {
+            ctx.lineTo(pts[p].x, pts[p].y);
+        }
+        ctx.stroke();
+    }
+}
+
+function buildPathPoints(playerIdx) {
+    const { n, rows, rungs } = ladderData;
+    const pts = [];
+    let col = playerIdx;
+    pts.push({ x: colX(col), y: rowY(0) });
+    for (let r = 0; r < rows; r++) {
+        const midY = rowY(r) + ladderData.cv.rowH / 2;
+        if (col < n - 1 && rungs[r][col]) {
+            pts.push({ x: colX(col),     y: midY });
+            col++;
+            pts.push({ x: colX(col),     y: midY });
+        } else if (col > 0 && rungs[r][col - 1]) {
+            pts.push({ x: colX(col),     y: midY });
+            col--;
+            pts.push({ x: colX(col),     y: midY });
+        }
+        pts.push({ x: colX(col), y: rowY(r + 1) });
+    }
+    return pts;
+}
+
+function animateLadderDraw() {
+    const canvas = document.getElementById('ladderCanvas');
+    const ctx = canvas.getContext('2d');
+    const duration = 600;
+    const start = performance.now();
+
+    function frame(now) {
+        const t = Math.min(1, (now - start) / duration);
+        // Simple: draw full rungs up to t * rows
+        const { n, rows, rungs, cv } = ladderData;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < n; i++) {
+            ctx.beginPath();
+            ctx.moveTo(colX(i), rowY(0));
+            ctx.lineTo(colX(i), rowY(rows));
+            ctx.stroke();
+        }
+
+        const drawRows = Math.ceil(rows * t);
+        for (let r = 0; r < drawRows; r++) {
+            for (let i = 0; i < n - 1; i++) {
+                if (rungs[r][i]) {
+                    ctx.beginPath();
+                    ctx.moveTo(colX(i),     rowY(r) + cv.rowH / 2);
+                    ctx.lineTo(colX(i + 1), rowY(r) + cv.rowH / 2);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+}
+
+function selectLadderResult(resultIdx) {
+    const playerIdx = ladderData.mapping.indexOf(resultIdx);
+    if (playerIdx !== -1) selectLadderPlayer(playerIdx);
+}
+
+function selectLadderPlayer(playerIdx) {
+    if (ladderData.animating) return;
+
+    // Already revealed: just re-draw path
+    if (ladderData.revealed[playerIdx]) {
+        const ctx = document.getElementById('ladderCanvas').getContext('2d');
+        drawLadderFull(ctx, playerIdx, 1);
+        return;
+    }
+
+    ladderData.animating = true;
+    const duration = 900;
+    const start = performance.now();
+    const canvas = document.getElementById('ladderCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function frame(now) {
+        const progress = Math.min(1, (now - start) / duration);
+        drawLadderFull(ctx, playerIdx, progress);
+
+        if (progress < 1) {
+            requestAnimationFrame(frame);
+        } else {
+            ladderData.revealed[playerIdx] = true;
+            ladderData.animating = false;
+
+            document.getElementById(`ladderPlayer_${playerIdx}`).classList.add('revealed');
+            const resultIdx = ladderData.mapping[playerIdx];
+            document.getElementById(`ladderResult_${resultIdx}`).classList.add('revealed');
+            document.getElementById('ladderHint').textContent =
+                `${ladderData.players[playerIdx]} → ${ladderData.results[resultIdx]}`;
+        }
+    }
+    requestAnimationFrame(frame);
+}
+
+function revealAllLadder() {
+    if (ladderData.animating) return;
+    const unrevealed = ladderData.players.map((_, i) => i).filter(i => !ladderData.revealed[i]);
+    unrevealed.forEach((playerIdx, order) => {
+        setTimeout(() => {
+            ladderData.revealed[playerIdx] = true;
+            document.getElementById(`ladderPlayer_${playerIdx}`).classList.add('revealed');
+            const ri = ladderData.mapping[playerIdx];
+            document.getElementById(`ladderResult_${ri}`).classList.add('revealed');
+        }, order * 250);
+    });
+    if (unrevealed.length > 0) {
+        setTimeout(() => {
+            document.getElementById('ladderHint').textContent = '모든 결과가 공개됐습니다!';
+            const ctx = document.getElementById('ladderCanvas').getContext('2d');
+            drawLadderFull(ctx, null, 1);
+        }, unrevealed.length * 250);
+    }
+}
+
+function renderLadderNames() {
+    const { players, results, n, mapping, revealed } = ladderData;
+
+    // Compute which result indices are already revealed
+    const revealedResults = new Array(n).fill(false);
+    for (let i = 0; i < n; i++) {
+        if (revealed[i]) revealedResults[mapping[i]] = true;
+    }
+
+    document.getElementById('ladderTopNames').innerHTML = players.map((p, i) =>
+        `<div class="ladder-name-chip${revealed[i] ? ' revealed' : ''}"
+              id="ladderPlayer_${i}" onclick="selectLadderPlayer(${i})">${p}</div>`
+    ).join('');
+
+    document.getElementById('ladderBottomNames').innerHTML = results.map((r, j) =>
+        `<div class="ladder-result-chip${revealedResults[j] ? ' revealed' : ''}"
+              id="ladderResult_${j}" onclick="selectLadderResult(${j})">${r}</div>`
+    ).join('');
+}
+
+function resetLadder() {
+    ladderData = null;
+    document.getElementById('ladderGame').classList.add('hidden');
+    document.getElementById('ladderSetup').classList.remove('hidden');
+    document.getElementById('ladderHint').textContent = '이름을 클릭하면 결과를 확인할 수 있습니다.';
+    renderLadderSetup();
 }

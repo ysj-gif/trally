@@ -260,6 +260,10 @@ body::before {
     overflow-y: hidden;
     height: 14px;
     margin-bottom: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    background: white;
 }
 
 .table-scroll-top-inner {
@@ -495,18 +499,65 @@ body::before {
     white-space: nowrap;
 }
 
-.comment-delete-btn {
+.comment-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.comment-delete-btn,
+.comment-edit-btn {
     background: none;
     border: none;
     cursor: pointer;
-    color: #ef4444;
     font-size: 12px;
     padding: 0 2px;
     line-height: 1;
 }
 
-.comment-delete-btn:hover {
+.comment-delete-btn {
+    color: #ef4444;
+}
+
+.comment-edit-btn {
+    color: #6b7280;
+}
+
+.comment-delete-btn:hover,
+.comment-edit-btn:hover {
     opacity: 0.7;
+}
+
+.comment-edit-input {
+    flex: 1;
+    padding: 3px 7px;
+    border: 1px solid #3b82f6;
+    border-radius: 5px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    min-width: 100px;
+}
+
+.comment-save-btn,
+.comment-cancel-btn {
+    padding: 3px 9px;
+    border: none;
+    border-radius: 5px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.comment-save-btn {
+    background: #1e40af;
+    color: white;
+}
+
+.comment-cancel-btn {
+    background: #e5e7eb;
+    color: #374151;
 }
 
 .comment-empty,
@@ -903,6 +954,41 @@ body::before {
     border-radius: 14px;
     padding: 20px;
     transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+}
+
+.topic-item-main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.topic-comment-toggle-btn {
+    background: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 12px;
+    padding: 2px 7px;
+    border-radius: 12px;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.topic-comment-toggle-btn:hover {
+    background: #eff6ff;
+    color: #1e40af;
+    border-color: #bfdbfe;
+}
+
+.topic-comment-panel {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e5e7eb;
 }
 
 .topic-item:hover {
@@ -1833,6 +1919,200 @@ body::before {
     vertical-align: middle;
 }
 
+/* ── 일정 추가/수정 모달 ──────────────────────────────────────────────── */
+
+.schedule-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.schedule-modal-content {
+    background: white;
+    border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    width: 100%;
+    max-width: 760px;
+    max-height: 92vh;
+    overflow-y: auto;
+    padding: 28px 32px;
+    box-sizing: border-box;
+}
+
+.schedule-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.schedule-modal-header h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e40af;
+}
+
+.schedule-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    color: #9ca3af;
+    padding: 0 4px;
+}
+
+.schedule-modal-close:hover {
+    color: #374151;
+}
+
+/* ── 갤러리 ───────────────────────────────────────────────────────────── */
+
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 18px;
+    margin-top: 16px;
+}
+
+.gallery-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.gallery-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+.gallery-card-image {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: #f3f4f6;
+}
+
+.gallery-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.gallery-card-info {
+    padding: 10px 12px;
+}
+
+.gallery-card-info h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gallery-card-meta {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.gallery-empty {
+    font-size: 14px;
+    color: #9ca3af;
+    margin-top: 24px;
+    text-align: center;
+}
+
+.gallery-image-preview {
+    margin-top: 8px;
+}
+
+.gallery-image-preview img {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: 8px;
+    object-fit: contain;
+    border: 1px solid #e5e7eb;
+}
+
+/* 갤러리 이미지 모달 */
+.image-modal-content {
+    background: white;
+    border-radius: 16px;
+    max-width: min(700px, 92vw);
+    max-height: 92vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.image-modal-content img#modalImage {
+    width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+    display: block;
+    border-radius: 16px 16px 0 0;
+    background: #f3f4f6;
+}
+
+.image-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    color: white;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    z-index: 10;
+    background: none;
+    border: none;
+}
+
+.image-modal-close:hover {
+    opacity: 0.8;
+}
+
+.image-modal-info {
+    padding: 16px 20px 20px;
+}
+
+.image-modal-info h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 6px;
+}
+
+.image-modal-info p {
+    font-size: 14px;
+    color: #4b5563;
+    margin-bottom: 4px;
+}
+
+.modal-meta {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 6px;
+}
+
 /* 모달 */
 .modal {
     position: fixed;
@@ -1931,5 +2211,225 @@ body::before {
     .date-input {
         max-width: 50px;
         font-size: 11px;
+    }
+}
+
+/* ── 사다리 게임 ──────────────────────────────────────────────────────── */
+
+.ladder-setup-grid {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    max-width: 600px;
+}
+
+.ladder-label {
+    font-weight: 600;
+    color: #1e40af;
+    font-size: 14px;
+}
+
+.ladder-setup-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ladder-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    min-height: 40px;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    background: #f9fafb;
+}
+
+.setup-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: white;
+    border: 1.5px solid #bfdbfe;
+    border-radius: 20px;
+    padding: 4px 10px 4px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e40af;
+}
+
+.chip-label {
+    line-height: 1;
+}
+
+.chip-remove-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9ca3af;
+    font-size: 11px;
+    padding: 0;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+}
+
+.chip-remove-btn:hover {
+    color: #ef4444;
+}
+
+.chip-add-btn {
+    background: none;
+    border: 1.5px dashed #d1d5db;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 13px;
+    color: #6b7280;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.chip-add-btn:hover {
+    border-color: #3b82f6;
+    color: #1e40af;
+}
+
+.chip-input-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.chip-input {
+    width: 80px;
+    padding: 4px 8px;
+    border: 1.5px solid #3b82f6;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+}
+
+.chip-confirm-btn {
+    padding: 3px 8px;
+    background: #1e40af;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.chip-cancel-btn {
+    padding: 3px 6px;
+    background: none;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #6b7280;
+    cursor: pointer;
+}
+
+.ladder-arrow {
+    font-size: 26px;
+    color: #9ca3af;
+    padding-top: 38px;
+    flex-shrink: 0;
+}
+
+.ladder-hint {
+    font-size: 13px;
+    color: #9ca3af;
+    margin-bottom: 14px;
+}
+
+.ladder-setup-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 4px;
+}
+
+/* 게임 보드 */
+.ladder-board {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.ladder-names {
+    display: flex;
+}
+
+.ladder-canvas-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+#ladderCanvas {
+    display: block;
+    margin: 0 auto;
+}
+
+.ladder-name-chip {
+    flex: 1;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 8px 2px;
+    cursor: pointer;
+    border-radius: 8px;
+    color: #1e40af;
+    transition: background 0.15s, color 0.15s;
+    user-select: none;
+}
+
+.ladder-name-chip:hover {
+    background: #eff6ff;
+}
+
+.ladder-name-chip.revealed {
+    color: #ef4444;
+}
+
+.ladder-result-chip {
+    flex: 1;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 8px 2px;
+    border-radius: 8px;
+    color: #ef4444;
+    opacity: 0.15;
+    transition: opacity 0.5s, background 0.15s;
+    user-select: none;
+    cursor: pointer;
+}
+
+.ladder-result-chip:hover {
+    background: #fff1f2;
+}
+
+.ladder-result-chip.revealed {
+    opacity: 1;
+}
+
+.ladder-game-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+@media (max-width: 480px) {
+    .ladder-setup-grid {
+        flex-direction: column;
+    }
+    .ladder-arrow {
+        padding-top: 0;
+        text-align: center;
     }
 }

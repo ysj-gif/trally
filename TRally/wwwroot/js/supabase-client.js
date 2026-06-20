@@ -339,6 +339,15 @@ async function deleteScheduleCommentFromDB(commentId) {
     if (error) throw error;
 }
 
+// 일정 댓글 수정
+async function updateScheduleCommentInDB(commentId, content) {
+    const { error } = await supabaseClient
+        .from('schedule_comments')
+        .update({ content })
+        .eq('id', commentId);
+    if (error) throw error;
+}
+
 // 아이디 중복 확인
 async function checkUsernameExists(username) {
     const { data, error } = await supabaseClient
@@ -582,6 +591,57 @@ async function saveAttendanceRecordToDB(scheduleId, memberId, attendance, reason
 
         if (error) throw error;
     }
+}
+
+// ============================================
+// 주제 댓글 관련 함수
+// ============================================
+
+async function loadTopicCommentsFromDB(topicId) {
+    const { data, error } = await supabaseClient
+        .from('topic_comments')
+        .select('*')
+        .eq('topic_id', topicId)
+        .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+}
+
+async function loadAllTopicCommentCountsFromDB() {
+    const { data, error } = await supabaseClient
+        .from('topic_comments')
+        .select('topic_id');
+    if (error) return {};
+    const counts = {};
+    (data || []).forEach(row => {
+        counts[row.topic_id] = (counts[row.topic_id] || 0) + 1;
+    });
+    return counts;
+}
+
+async function addTopicCommentToDB(topicId, author, content) {
+    const { data, error } = await supabaseClient
+        .from('topic_comments')
+        .insert([{ topic_id: topicId, author, content, created_at: new Date().toISOString() }])
+        .select();
+    if (error) throw error;
+    return data[0];
+}
+
+async function deleteTopicCommentFromDB(commentId) {
+    const { error } = await supabaseClient
+        .from('topic_comments')
+        .delete()
+        .eq('id', commentId);
+    if (error) throw error;
+}
+
+async function updateTopicCommentInDB(commentId, content) {
+    const { error } = await supabaseClient
+        .from('topic_comments')
+        .update({ content })
+        .eq('id', commentId);
+    if (error) throw error;
 }
 
 // ============================================
